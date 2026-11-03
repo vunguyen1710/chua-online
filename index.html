@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#241b29">
+  <meta name="description" content="Khẩu nghiệp online, nhận một lời chúc dễ thương rồi thả cá vàng về hồ sen trong thế giới chùa 2D.">
+  <title>Chùa Online — Khẩu Nghiệp Hoá Bình An</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="game-shell">
+    <canvas id="game" aria-label="Bản đồ chùa 2D có nhân vật di chuyển"></canvas>
+    <div class="vignette" aria-hidden="true"></div>
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark">✿</span><div><b>CHÙA ONLINE</b><small>Khẩu nghiệp hoá bình an</small></div></div>
+      <div class="top-actions">
+        <span class="pill online-pill" id="onlineBadge">● <b id="onlineCount">1</b> đang dạo chùa</span><span class="pill" id="counterBadge">🐟 <b id="fishCount">0</b> đã phóng sinh</span>
+        <button id="soundBtn" class="icon-btn" title="Bật/tắt âm thanh" aria-label="Bật/tắt âm thanh">♫</button>
+        <button id="helpBtn" class="icon-btn" title="Hướng dẫn" aria-label="Hướng dẫn">?</button>
+      </div>
+    </header>
+    <div class="scene-caption"><span class="chapter" id="chapter">01 / SÂN CHÙA</span><h1 id="sceneTitle">Viết sớ, dâng hương,<br>gửi muộn phiền.</h1><p id="sceneSubtitle">Viết sớ ở sân, vào điện dâng sớ và thắp hương rồi nhận cá vàng.</p></div>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <div class="bottom-hud">
+      <div class="control-tip" id="controlTip"><span class="key-group"><kbd>W</kbd><span><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span></span><span>hoặc phím mũi tên để đi lại</span><i></i><kbd>E</kbd><span>tương tác</span></div>
+      <button id="actionBtn" class="action-btn" disabled><span class="action-key">E</span><span id="actionLabel">Hãy đến bàn viết sớ</span><span>↗</span></button>
+    </div>
+    <form class="chat-bar" id="chatForm" autocomplete="off"><span class="chat-icon">💬</span><input id="chatInput" maxlength="100" placeholder="Nói gì với mọi người..." aria-label="Nội dung trò chuyện"/><button id="chatSend" type="submit" aria-label="Gửi tin nhắn">Gửi ➤</button></form>
+    <div class="connection-pill" id="connectionPill">Đang kết nối...</div>
+    <div class="mobile-controls" id="mobileControls" aria-label="Joystick di chuyển"><div id="joystick" class="joystick" role="group" aria-label="Cần điều khiển cảm ứng"><div class="joystick-ring"></div><div id="joystickKnob" class="joystick-knob"></div></div><small>DI CHUYỂN</small></div>
+    <div class="dialog-backdrop" id="joinModal" role="dialog" aria-modal="true"><div class="dialog join-dialog"><div class="dialog-emblem">🏮</div><div class="eyebrow">CHÙA ONLINE • QUẢNG TRƯỜNG CHUNG</div><h2>Chào mừng bạn ghé chùa</h2><p class="dialog-copy">Đặt một biệt danh để cùng dạo chơi, trò chuyện bằng bong bóng chữ và phóng sinh cá vàng nhé.</p><input id="nameInput" maxlength="18" placeholder="Tên của bạn (2–18 ký tự)" autocomplete="nickname"/><button id="joinBtn" class="primary-btn">Bước vào sân chùa ✦</button><p class="join-note">Không đăng số điện thoại, địa chỉ hay lời nói xúc phạm người khác. Tin nhắn hiển thị công khai trong sân chùa.</p></div></div>
+    <div class="dialog-backdrop hidden" id="letterModal" role="dialog" aria-modal="true" aria-labelledby="letterTitle"><div class="dialog scroll-dialog"><button class="close" data-close="letterModal" aria-label="Đóng">×</button><div class="dialog-emblem">✍</div><div class="eyebrow">GỬI LỜI CHO GIÓ</div><h2 id="letterTitle">Sớ giải tỏa khẩu nghiệp</h2><p class="dialog-copy">Kể điều làm bạn bực mình hôm nay. Nội dung sớ chỉ được xử lý trên thiết bị của bạn, không gửi lên máy chủ. Vui thôi, nhẹ lòng thôi nhé!</p><label for="karmaInput">NỖI LÒNG CỦA BẠN</label><textarea id="karmaInput" maxlength="400" placeholder="Ví dụ: Mong người hay nhắn 'ê' rồi biến mất sớm biết nói nốt câu chuyện..." rows="5"></textarea><div class="field-bottom"><span>Không cần nhắc tên thật hay thông tin cá nhân.</span><span id="charCount">0/400</span></div><button class="primary-btn" id="submitBtn">Gấp sớ lại, mang vào điện →</button></div></div>
+    <div class="dialog-backdrop hidden" id="offeringModal" role="dialog" aria-modal="true" aria-labelledby="offeringTitle"><div class="dialog ceremony-dialog"><div class="dialog-emblem">📜</div><div class="eyebrow">TRƯỚC HƯƠNG ÁN</div><h2 id="offeringTitle">Dâng sớ tâm tình</h2><p class="dialog-copy">Bạn đã mang sớ vào điện. Hãy đặt lá sớ lên hương án, gửi đi điều phiền lòng.</p><div class="ceremony-illustration">📜 <span>✦</span> 🪷</div><button class="primary-btn" id="offerBtn">Trang trọng dâng sớ ✨</button></div></div>
+    <div class="dialog-backdrop hidden" id="incenseModal" role="dialog" aria-modal="true" aria-labelledby="incenseTitle"><div class="dialog ceremony-dialog"><div class="dialog-emblem">🪔</div><div class="eyebrow">GỬI ĐIỀU AN LÀNH</div><h2 id="incenseTitle">Thắp một nén hương</h2><p class="dialog-copy">Nén hương tượng trưng cho mong ước bình an. Hoàn thành nghi thức này để nhận lời chúc và cá vàng.</p><div class="incense-art"><div class="smoke smoke-one">〰</div><div class="smoke smoke-two">〰</div><div class="incense-stick"></div><div class="incense-base"></div></div><button class="primary-btn" id="incenseBtn">Thắp hương cầu bình an ✨</button></div></div>
+    <div class="dialog-backdrop hidden" id="blessingModal" role="dialog" aria-modal="true" aria-labelledby="blessingTitle"><div class="dialog blessing-dialog"><div class="floating-star s1">✦</div><div class="floating-star s2">✧</div><div class="dialog-emblem fish-emblem">🐠</div><div class="eyebrow">MỘT CHÚT PHÚC LÀNH</div><h2 id="blessingTitle">Tâm an thì phúc đến</h2><p class="blessing-quote" id="blessingText"></p><div class="reward"><div class="reward-fish">🐟</div><div><small>QUÀ BÌNH AN</small><strong>+1 Cá vàng may mắn</strong></div></div><button class="primary-btn" id="releaseBtn">Mang cá ra hồ sen →</button></div></div>
+    <div class="dialog-backdrop hidden" id="helpModal" role="dialog" aria-modal="true" aria-labelledby="helpTitle"><div class="dialog"><button class="close" data-close="helpModal" aria-label="Đóng">×</button><div class="eyebrow">HƯỚNG DẪN</div><h2 id="helpTitle">Hành trình 5 bước</h2><div class="help-grid"><div>01</div><p>Di chuyển bằng <b>WASD / phím mũi tên</b> hoặc joystick tròn trên điện thoại.</p><div>02</div><p>Đi đến <b>bàn viết sớ</b>, nhấn <b>E</b> hoặc nút tương tác.</p><div>03</div><p>Nhập lời tâm sự và <b>niêm sớ</b>, sau đó tìm đến cửa điện chính.</p><div>04</div><p>Vào điện, <b>dâng sớ</b> rồi <b>thắp hương</b> để nhận cá vàng. Sau đó ra hồ phóng sinh. Chat và vị trí người chơi đồng bộ theo thời gian thực.</p></div><p class="dialog-copy">Trong điện: đến gần hương án và nhấn E hoặc nút tương tác.</p><button class="primary-btn" data-close="helpModal">Đã hiểu, bắt đầu thôi ✦</button></div></div>
+    <div class="release-panel hidden" id="releasePanel"><div class="eyebrow">02 / HỒ SEN BÌNH AN</div><div id="releaseStatus" class="release-status">Một chú cá vàng đang đợi bạn...</div><button class="primary-btn" id="dropFishBtn">🐟 Thả cá về hồ</button><button class="ghost-btn hidden" id="againBtn">↶ Quay lại sân chùa</button><p class="release-note" id="releaseNote">Nhấn nút để xem chú cá bơi tự do dưới làn nước.</p></div>
+    <div class="footer-mark">Một trò chơi vui lấy cảm hứng từ không gian chùa Việt • Không đại diện cơ sở tôn giáo nào</div>
+  </div>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="game.js" defer></script>
+</body>
+</html>

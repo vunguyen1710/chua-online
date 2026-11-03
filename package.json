@@ -1,0 +1,10 @@
+{
+  "name": "chua-online-multiplayer",
+  "version": "3.1.0",
+  "private": true,
+  "description": "Mini game chua online nhieu nguoi choi thoi gian thuc",
+  "main": "server.js",
+  "scripts": {"start":"node server.js", "dev":"node server.js"},
+  "engines": {"node": ">=18"},
+  "dependencies": {"express":"^4.21.2", "socket.io":"^4.8.1"}
+}
