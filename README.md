@@ -1,3 +1,23 @@
+# Chùa Online Multiplayer 3.4 — Hai chức năng độc lập
+
+## 1. Viết sớ cầu an (bàn bên phải sân chùa)
+Viết sớ cầu an -> đến cửa Điện Quan Âm -> dâng sớ -> thắp hương -> nhận cá -> phóng sinh.
+Sớ cầu an chỉ dùng trong phiên chơi; KHÔNG gửi lên API Cây Khẩu Nghiệp và không đăng công khai.
+
+## 2. Cây Khẩu Nghiệp (bên trái sân chùa)
+Đến cây hoặc dùng nút 🌳 -> Đọc các lời công khai, hoặc nhấn 'Viết lời khẩu nghiệp' -> treo lên cây.
+Lời khẩu nghiệp được lưu bởi POST /api/notes và đọc bằng GET /api/notes, độc lập với nghi thức dâng sớ.
+PostgreSQL cần DATABASE_URL để lưu qua các lần deploy; nếu không có, chế độ JSON local không bền vững trên Render.
+Nội dung cũ trong bảng karma_notes được giữ nguyên.
+
+## Chạy
+`npm install` rồi `npm start`, vào http://localhost:3000.
+Triển khai Render Web Service dùng Build: npm install, Start: npm start.
+Cập nhật toàn bộ game.js, index.html, style.css, server.js; giữ thư mục assets.
+
+## Lưu ý
+Đây là game giải trí, không đại diện cơ sở tôn giáo. Nội dung trên cây công khai: cần quản trị và cơ chế báo cáo khi triển khai lớn.
+
 # Chùa Online 3.0 — Multiplayer + Joystick + Dâng sớ
 
 ## Hành trình chơi

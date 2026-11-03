@@ -111,3 +111,7 @@ html,body{overscroll-behavior:none;-webkit-text-size-adjust:100%;touch-action:pa
 .note-author{font-size:12px;color:#906e46}.tree-pagination{display:flex;gap:8px;align-items:center;justify-content:center;font-size:12px}.tree-pagination .ghost-btn{width:auto;margin:0;color:#69452e;border-color:#a9895b;padding:10px 12px}.tree-pagination button:disabled{opacity:.4}
 @media(max-width:700px){.tree-pill{position:absolute;top:99px;right:13px;font-size:10px;padding:5px 9px}.tree-dialog .note-list{max-height:40dvh}.tree-dialog{padding:18px 15px}}
 @media(max-width:390px){.note-list{grid-template-columns:1fr}.tree-pill{font-size:9px}}
+
+/* v3.4: tách chức năng Cây Khẩu Nghiệp và Viết sớ cầu an */
+.tree-write-btn{width:100%;margin:0 0 14px;min-height:48px;}
+#prayerInput,#karmaInput{width:100%;}

@@ -60,12 +60,12 @@ app.get('/api/notes',async(req,res)=>{
 });
 app.post('/api/notes',async(req,res)=>{
   const author=clean(req.body?.author,18),content=clean(req.body?.content,400);
-  if(author.length<2||content.length<3)return res.status(400).json({error:'Tên hoặc sớ chưa hợp lệ (3–400 ký tự)'});
+  if(author.length<2||content.length<3)return res.status(400).json({error:'Tên hoặc lời khẩu nghiệp chưa hợp lệ (3–400 ký tự)'});
   const ip=(req.ip||req.socket.remoteAddress||'').slice(0,100),now=Date.now();
-  if(now-(noteRate.get(ip)||0)<20000)return res.status(429).json({error:'Hãy đợi 20 giây trước khi treo sớ tiếp theo'});
+  if(now-(noteRate.get(ip)||0)<20000)return res.status(429).json({error:'Hãy đợi 20 giây trước khi treo lời tiếp theo'});
   noteRate.set(ip,now);
   try{const note=await addNote(author,content);io.emit('noteAdded',note);res.status(201).json({note});}
-  catch(err){noteRate.delete(ip);console.error('Notes POST:',err.message);res.status(503).json({error:'Không thể lưu sớ, vui lòng thử lại'});}
+  catch(err){noteRate.delete(ip);console.error('Notes POST:',err.message);res.status(503).json({error:'Không thể lưu lời khẩu nghiệp, vui lòng thử lại'});}
 });
 // Optional moderation endpoint; never expose ADMIN_TOKEN to browser code.
 app.delete('/api/notes/:id',async(req,res)=>{
