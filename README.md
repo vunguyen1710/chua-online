@@ -38,3 +38,31 @@ Mở `http://localhost:3000` trên máy tính. Điện thoại cùng Wi-Fi mở 
 - Sau khi dâng sớ, chọn Thắp hương để nhận cá vàng rồi phóng sinh.
 - Các chức năng joystick, chat bong bóng và đồng bộ Socket.IO được giữ nguyên.
 - Có thể thay ảnh bằng file PNG khác cùng tên; bố cục hiện tại dành cho ảnh 16:9.
+
+
+## 3.2 – Tối ưu điện thoại
+- Camera theo nhân vật trong màn hình dọc, giữ toạ độ đồng bộ Socket.IO.
+- Joystick tròn và nút tương tác không đè thanh trò chuyện.
+- Căn chỉnh cho màn hình nhỏ, landscape, vùng tai thỏ và safe-area.
+- Nút ⛶ chuyển toàn màn hình (nếu trình duyệt hỗ trợ).
+- Tăng kích thước nhập liệu trên iOS tránh tự zoom.
+- URL `style.css?v=3.2.0` và `game.js?v=3.2.0` giúp trình duyệt nhận bản mới.
+
+
+## 3.3 — Cây Khẩu Nghiệp (lưu chung lâu dài)
+
+Mỗi người viết lời ở bàn sớ -> tự động treo lên cây ở phía trái sân. Người chơi khác có thể tới cây bấm E, nhấn cây bằng chuột/touch, hoặc dùng nút 🌳 ở góc trên để xem sớ (phân trang). Viết xong vẫn vào điện dâng sớ, thắp hương và thả cá như cũ. Sớ công khai với mọi người: không ghi thông tin cá nhân nhạy cảm.
+
+### Quan trọng: lưu dữ liệu lâu dài trên Render
+
+**BẮT BUỘC cấu hình PostgreSQL cho môi trường thật.** Render Free có filesystem tạm; JSON trên ổ đĩa của Render có thể mất lúc deploy lại, restart hoặc redeploy.
+
+1. Tạo một PostgreSQL database được quản lý bởi Neon, Supabase hoặc Render Postgres (kiểm tra gói lưu trữ và thời hạn của nhà cung cấp).
+2. Sao chép connection string dạng `postgresql://USER:PASSWORD@HOST/DB?sslmode=require`.
+3. Trong Render Web Service -> Environment -> Add Environment Variable: `DATABASE_URL` = chuỗi kết nối đó; Save and Deploy. Giữ secret chỉ ở Render, KHÔNG commit lên GitHub.
+4. Xem log có `Cây Khẩu Nghiệp: PostgreSQL connected`. Table `karma_notes` sẽ được tạo tự động.
+5. Bản local nếu không có `DATABASE_URL` sẽ ghi `local-notes.json` để thử nghiệm. **Không bảo đảm dữ liệu vĩnh viễn trên Render**.
+
+Endpoint: GET `/api/notes?page=1&limit=12`, POST `/api/notes`. Nội dung tối đa 400 ký tự, giới hạn tạo sớ 20 giây/IP để giảm spam. Nội dung có thể đọc công khai. Có API kiểm duyệt `DELETE /api/notes/:id` yêu cầu header `x-admin-token` bằng biến `ADMIN_TOKEN` đặt trên Render; không cung cấp token cho trình duyệt. Chưa có giao diện báo cáo/sàng lọc nội dung, cần bổ sung trước khi quảng bá rộng rãi.
+
+**Ghi chú:** Bản ZIP không kèm `node_modules` hoặc `package-lock.json`. Chạy `npm install` ở thư mục dự án để tạo `package-lock.json` mới (gồm `pg`), rồi commit file lock mới. Render dùng lệnh build `npm install`.

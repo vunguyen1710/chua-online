@@ -5,13 +5,49 @@
   if (!ctx) { alert('Trình duyệt không hỗ trợ Canvas 2D.'); return; }
   const $ = id => document.getElementById(id);
   const W = 1200, H = 760;
-  const state = { scene:'temple', keys:new Set(), player:{x:610,y:610,dir:0,steps:0}, time:0, near:false, locked:false, fishStart:-1, fishReleased:false, ritual:0, hasLetter:false, blessing:'', joyX:0, joyY:0, particles:[], sound:false, last:0, count:0 };
+  const state = { scene:'temple', keys:new Set(), player:{x:610,y:610,dir:0,steps:0}, time:0, near:false, locked:false, fishStart:-1, fishReleased:false, ritual:0, nearTree:false, hasLetter:false, blessing:'', joyX:0, joyY:0, particles:[], sound:false, last:0, count:0 };
   try { state.count = Math.max(0, Number(localStorage.getItem('chuaonline_fish') || 0) || 0); } catch (_) {}
   $('fishCount').textContent = String(state.count);
   // Real-time state; only character coordinates and public chat are synchronized.
   const peers = new Map();
   let socket = null, nickname = '', joined = false, lastSent = 0, lastChat = 0;
   let myBubble = null;
+  let recentNotes=[], noteTotal=0, notePage=1, noteHasNext=false, readingNote=null;
+  function updateTreeCount() { $('treeCount').textContent=String(noteTotal); }
+  function readableDate(value) {const d=new Date(value);return Number.isNaN(d.getTime())?'':d.toLocaleString('vi-VN');}
+  async function loadNotes(page=1) {
+    const list=$('noteList');list.textContent='Đang tải lá sớ...';
+    try {
+      const response=await fetch('/api/notes?page='+page+'&limit=12',{cache:'no-store'});
+      if(!response.ok)throw Error('Máy chủ chưa sẵn sàng');
+      const data=await response.json();notePage=page;noteTotal=data.total;noteHasNext=page*12<data.total;updateTreeCount();
+      if(page===1)recentNotes=data.items.slice(0,12);
+      list.replaceChildren();
+      if(!data.items.length){list.textContent='Cây còn trống. Hãy là người đầu tiên treo một lá sớ!';}
+      for(const note of data.items){
+        const b=document.createElement('button');b.type='button';b.className='note-card';
+        const a=document.createElement('small');a.textContent='🍃 '+readableDate(note.createdAt);
+        const name=document.createElement('b');name.textContent=note.author;
+        const excerpt=document.createElement('span');excerpt.textContent=note.content;
+        b.append(a,name,excerpt);b.addEventListener('click',()=>readNote(note));list.appendChild(b);
+      }
+      $('notesPage').textContent='Trang '+page;$('notesPrev').disabled=page<=1;$('notesNext').disabled=!noteHasNext;
+    }catch(err){list.textContent='Không tải được cây sớ. Vui lòng thử lại khi có mạng.';}
+  }
+  function showTree(){if(!joined)return;modal('treeModal',true);loadNotes(1)}
+  function readNote(note){readingNote=note;modal('treeModal',false);$('readNoteAuthor').textContent='✍ '+note.author+' · '+readableDate(note.createdAt);$('readNoteContent').textContent=note.content;modal('readNoteModal',true)}
+  $('treeOpenBtn').addEventListener('click',showTree);
+  canvas.addEventListener('click',event=>{
+    if(state.scene!=='temple'||state.locked||!joined||!state.view)return;
+    const r=canvas.getBoundingClientRect();const x=(event.clientX-r.left-state.view.offX)/state.view.scale;
+    const y=(event.clientY-r.top-state.view.offY)/state.view.scale;
+    if(x>78&&x<298&&y>240&&y<480)showTree();
+  });
+  $('notesPrev').addEventListener('click',()=>loadNotes(Math.max(1,notePage-1)));
+  $('notesNext').addEventListener('click',()=>{if(noteHasNext)loadNotes(notePage+1)});
+  $('backToTree').addEventListener('click',()=>{modal('readNoteModal',false);showTree()});
+  fetch('/api/notes?page=1&limit=12',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(d=>{if(d){recentNotes=d.items;noteTotal=d.total;updateTreeCount()}}).catch(()=>{});
+
   const safeName = s => String(s || '').trim().replace(/[<>\u0000-\u001f]/g, '').slice(0,18);
   function bubble(textValue, ts) { return { text: String(textValue).slice(0,100), until: (ts || performance.now()) + 6200 }; }
   function initMultiplayer() {
@@ -24,6 +60,8 @@
     socket.on('playerLeft', id => { peers.delete(id); $('onlineCount').textContent=String(peers.size+1); });
     socket.on('playerMoved', p => { const peer=peers.get(p.id); if(peer) { peer.x=p.x;peer.y=p.y;peer.dir=p.dir;peer.scene=p.scene;peer.moving=p.moving; } });
     socket.on('chat', data => { const item=bubble(data.text); if(data.id===socket.id) myBubble=item; else if(peers.has(data.id)) peers.get(data.id).bubble=item; });
+    socket.on('notesRefresh',()=>loadNotes(1));
+    socket.on('noteAdded', note => { recentNotes.unshift(note);recentNotes=recentNotes.slice(0,12);noteTotal++;updateTreeCount(); if(!document.getElementById('treeModal').classList.contains('hidden'))loadNotes(1); });
     socket.on('online', n => $('onlineCount').textContent=String(n));
     socket.on('serverError', msg => toast(String(msg).slice(0,100)));
   }
@@ -118,6 +156,28 @@
   function lotus(x,y,s=1){ctx.save();ctx.translate(x,y+Math.sin(state.time*.0015+x)*2);ctx.scale(s,s);ellipse(0,10,20,7,'#35775f');for(let i=0;i<7;i++){ctx.save();ctx.rotate(i*Math.PI*2/7);ellipse(0,-8,6,14,i%2?'#eb9ba6':'#f6c3b0');ctx.restore()}ellipse(0,0,5,5,'#ebcc77');ctx.restore()}
   function pond(x,y,rx,ry){ellipse(x,y+8,rx+15,ry+13,'#b4a57a');ellipse(x,y,rx+7,ry+7,'#d5bd89');ellipse(x,y,rx,ry,'#316d76');ellipse(x-20,y-13,rx*.8,ry*.65,'#3d8990');for(let i=0;i<5;i++){let px=x+(seedRand(i+500)-.5)*rx*1.55,py=y+(seedRand(i+510)-.5)*ry*1.1;strokeEllipse(px,py,14+Math.sin(state.time*.002+i)*3,4,'#9bd6c26b',2)}for(let i=0;i<5;i++){const xx=x+(seedRand(i+300)-.5)*rx*1.6, yy=y+(seedRand(i+350)-.5)*ry*1.25;ellipse(xx+10,yy,19,11,'#478b66');lotus(xx,yy-2,.65)} }
   function shrineDesk(){const x=926,y=493;ellipse(x+4,y+23,94,28,'#24312573');fill(x-63,y-16,12,43,'#593c2a');fill(x+49,y-16,12,43,'#593c2a');rounded(x-77,y-25,154,28,5);ctx.fillStyle='#8c5634';ctx.fill();fill(x-70,y-23,140,8,'#c08a53');fill(x-35,y-37,70,18,'#e6d5a5');fill(x-35,y-41,70,5,'#fdf0c8');fill(x-7,y-49,16,11,'#af543c');text('✦',x,-20+y,17,'#f7d48c');if(state.near&&state.ritual===0&&!state.locked&&state.scene==='temple'){ctx.globalAlpha=.5+.4*Math.sin(state.time*.005);strokeEllipse(x,y-8,104,45,'#f8d693',3);ctx.globalAlpha=1}rounded(x-70,y+35,140,29,6);ctx.fillStyle='#f9e6ba';ctx.fill();text('BÀN VIẾT SỚ',x,y+49,13,'#68452c','center','sans-serif')}
+
+  function drawKarmaTree(){
+    // Trees and clickable golden parchment hang in a fixed world coordinate area.
+    const x=190,y=418;
+    ctx.save();
+    ellipse(x+6,y+27,94,21,'#263b2e55');
+    fill(x-13,y-94,25,116,'#604229');
+    for(let i=0;i<13;i++)leaf(x+Math.sin(i*2.1)*68,y-122+Math.cos(i*2.5)*31,1.55,i);
+    const count=Math.min(9,recentNotes.length);
+    for(let i=0;i<count;i++){
+      const a=(i%5-2)*30, b=Math.floor(i/5)*30;
+      const px=x+a, py=y-123+b+Math.sin(state.time*.002+i)*3;
+      ctx.strokeStyle='#fce4b0';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(px,py-20);ctx.lineTo(px,py-4);ctx.stroke();
+      rounded(px-11,py-4,22,30,3);ctx.fillStyle='#f4d38b';ctx.fill();
+      ctx.strokeStyle='#9c622f';ctx.lineWidth=1;ctx.stroke();
+      text('✦',px,py+10,11,'#8c4b25');
+    }
+    rounded(x-86,y+32,172,30,7);ctx.fillStyle='#f6e8c8';ctx.fill();
+    text('🌳 CÂY KHẨU NGHIỆP',x,y+48,13,'#64452a','center','sans-serif');
+    if(state.nearTree){ctx.globalAlpha=.65+.3*Math.sin(state.time*.004);strokeEllipse(x,y+12,108,29,'#ffd78a',3);ctx.globalAlpha=1}
+    ctx.restore();
+  }
   function stones(){for(let i=0;i<15;i++){const row=Math.floor(i/3),col=i%3;let x=505+col*91+(row%2)*12,y=371+row*82;ctx.save();ctx.translate(x,y);ctx.rotate((seedRand(i)-.5)*.3);rounded(-39,-24,78,46,9);ctx.fillStyle=i%3?'#b3ad94':'#c1baa4';ctx.fill();ctx.strokeStyle='#e9dfbb75';ctx.lineWidth=2;ctx.stroke();ctx.restore()}}
   function drawTemple(){
     const sky=ctx.createLinearGradient(0,0,0,H);sky.addColorStop(0,'#8e9f8f');sky.addColorStop(.38,'#c5b893');sky.addColorStop(.39,'#66826b');sky.addColorStop(1,'#678868');fill(0,0,W,H,sky);
@@ -131,7 +191,7 @@
     // ground props
     for(let i=0;i<8;i++){const x=75+i*139,y=430+Math.cos(i*3)*20;ellipse(x,y,24,7,'#46694765');leaf(x,y,.57,i)}
     pond(232,531,192,113);tree(50,580,.78);tree(1115,560,.86);
-    shrineDesk();lantern(831,436,.8);lantern(1080,420,.8);
+    shrineDesk();drawKarmaTree();lantern(831,436,.8);lantern(1080,420,.8);
     if(state.ritual>=1){ctx.save();ctx.globalAlpha=.65+.25*Math.sin(state.time*.004);strokeEllipse(600,393,64,23,'#fbe5a5',4);ctx.restore();rounded(536,389,128,30,8);ctx.fillStyle='#f6e7c1';ctx.fill();text('CỬA VÀO ĐIỆN',600,404,13,'#624328','center','sans-serif')}
     // tiny drifting petals
     for(let i=0;i<15;i++){const x=(seedRand(i+33)*W+state.time*.011*(i%3+1))%(W+100)-50;const y=(seedRand(i+88)*480+state.time*.01*(i%2+1))%(H+50);ellipse(x,y,3,2,'#fae0b28f')}
@@ -199,18 +259,34 @@
   function render(ms){const dt=Math.min((ms-state.last||16)/1000,.045);state.last=ms;state.time=ms;
     if((state.scene==='temple'||state.scene==='inside')&&!state.locked&&joined){let dx=state.joyX,dy=state.joyY;for(const k of state.keys){if(k==='arrowup'||k==='w')dy--;if(k==='arrowdown'||k==='s')dy++;if(k==='arrowleft'||k==='a')dx--;if(k==='arrowright'||k==='d')dx++}if(dx||dy){const n=Math.max(1,Math.hypot(dx,dy)),oldX=state.player.x,oldY=state.player.y;dx/=n;dy/=n;state.player.x=clamp(oldX+dx*210*dt,37,1163);state.player.y=clamp(oldY+dy*210*dt,state.scene==='temple'?390:640,721);state.player.steps+=dt*2.8;if(Math.abs(dx)>.1)state.player.dir=dx>0?1:-1}
     let near=false;
-    if(state.scene==='temple')near=state.ritual===0?Math.hypot(state.player.x-926,state.player.y-493)<117:state.ritual===1&&Math.hypot(state.player.x-600,state.player.y-401)<90;
+    state.nearTree=state.scene==='temple'&&Math.hypot(state.player.x-190,state.player.y-442)<145;
+    if(state.scene==='temple')near=state.nearTree|| (state.ritual===0?Math.hypot(state.player.x-926,state.player.y-493)<117:state.ritual===1&&Math.hypot(state.player.x-600,state.player.y-401)<90);
     else near=state.ritual===1&&Math.hypot(state.player.x-600,state.player.y-670)<105;
-    if(near!==state.near){state.near=near;updateAction()}}
-    const vw=window.innerWidth,vh=window.innerHeight,dpr=Math.min(window.devicePixelRatio||1,2);if(canvas.width!==Math.round(vw*dpr)||canvas.height!==Math.round(vh*dpr)){canvas.width=Math.round(vw*dpr);canvas.height=Math.round(vh*dpr)}const scale=Math.max(vw/W,vh/H);
-    // On portrait screens, track the player horizontally so off-screen zones remain reachable.
-    const offX=vw<W*scale?clamp(vw/2-state.player.x*scale,vw-W*scale,0):(vw-W*scale)/2;
-    const offY=(vh-H*scale)/2;ctx.setTransform(dpr*scale,0,0,dpr*scale,dpr*offX,dpr*offY);ctx.clearRect(-offX/scale,-offY/scale,vw/scale,vh/scale);
+    if(near!==state.near||state.lastNearTree!==state.nearTree){state.near=near;state.lastNearTree=state.nearTree;updateAction()}}
+    // Responsive camera: preserve world coordinates (1200×760) for Socket.IO.
+    // Keep the player in the usable center area above the mobile joystick/chat.
+    const bounds=canvas.getBoundingClientRect();
+    const vw=Math.max(1,bounds.width),vh=Math.max(1,bounds.height),dpr=Math.min(window.devicePixelRatio||1,2);
+    if(canvas.width!==Math.round(vw*dpr)||canvas.height!==Math.round(vh*dpr)){
+      canvas.width=Math.round(vw*dpr);canvas.height=Math.round(vh*dpr);
+    }
+    const portrait=vw<=680&&vh>vw;
+    const scale=portrait?Math.max(vw/610,vh/835):Math.max(vw/W,vh/H);
+    // Game world can extend past the viewport; follow character on both axes.
+    const offX=vw<W*scale?clamp(vw*.5-state.player.x*scale,vw-W*scale,0):(vw-W*scale)/2;
+    const offY=portrait?Math.min(36,vh*.55-state.player.y*scale):(vh-H*scale)/2;
+    // Fill any extra space with floor/sky tones, without exposing blank canvas.
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    ctx.fillStyle=state.scene==='release'?'#194759':state.scene==='inside'?'#a66d48':'#6a795c';
+    ctx.fillRect(0,0,vw,vh);
+    state.view={scale,offX,offY};
+    ctx.setTransform(dpr*scale,0,0,dpr*scale,dpr*offX,dpr*offY);
     if(state.scene==='temple'){drawTemple();drawPeers();drawPlayer();sendPosition()}else if(state.scene==='inside'){drawInside();drawPeers();drawPlayer();sendPosition()}else drawRelease();requestAnimationFrame(render)}
-  function updateAction(){const enabled=state.scene!=='release'&&state.near&&!state.locked;$('actionBtn').disabled=!enabled;$('actionLabel').textContent=enabled?(state.scene==='inside'?'Dâng sớ tại hương án':state.ritual===0?'Viết sớ khẩu nghiệp':'Bước vào điện chính'):(state.scene==='inside'?'Hãy đến hương án':state.ritual===0?'Hãy đến bàn viết sớ':'Hãy đến cửa điện')}
+  function updateAction(){const enabled=state.scene!=='release'&&state.near&&!state.locked;$('actionBtn').disabled=!enabled;$('actionLabel').textContent=state.nearTree?'🌳 Đọc Cây Khẩu Nghiệp':enabled?(state.scene==='inside'?'Dâng sớ tại hương án':state.ritual===0?'Viết sớ khẩu nghiệp':'Bước vào điện chính'):(state.scene==='inside'?'Hãy đến hương án':state.ritual===0?'Hãy đến bàn viết sớ':'Hãy đến cửa điện')}
   function modal(id,show){$(id).classList.toggle('hidden',!show);state.locked=show;state.keys.clear();state.joyX=0;state.joyY=0;resetJoystick();updateAction()}
   let toastTimer;function toast(s){$('toast').textContent=s;$('toast').classList.add('visible');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').classList.remove('visible'),2800)}
   function interact(){if(!state.near||state.locked||!joined)return;
+    if(state.scene==='temple'&&state.nearTree){showTree();return;}
     if(state.scene==='temple'&&state.ritual===0){modal('letterModal',true);$('karmaInput').focus();tone(660);return;}
     if(state.scene==='temple'&&state.ritual===1&&Math.hypot(state.player.x-600,state.player.y-401)<90){state.scene='inside';state.player.x=600;state.player.y=713;state.near=false;sendPosition(true);$('chapter').textContent='02 / BÊN TRONG ĐIỆN';$('sceneTitle').innerHTML='Dâng sớ thành tâm,<br>thắp hương bình an.';$('sceneSubtitle').textContent='Đến hương án ở giữa điện, nhấn E để dâng sớ.';updateAction();tone(660);return;}
     if(state.scene==='inside'&&state.ritual===1&&Math.hypot(state.player.x-600,state.player.y-670)<105){modal('offeringModal',true);tone(720)}
@@ -219,14 +295,36 @@
   $('helpBtn').addEventListener('click',()=>modal('helpModal',true));
   document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',()=>modal(b.dataset.close,false)));
   $('karmaInput').addEventListener('input',()=>{$('charCount').textContent=$('karmaInput').value.length+'/400'});
-  $('submitBtn').addEventListener('click',()=>{const s=$('karmaInput').value.trim();if(s.length<3){toast('Viết ít nhất 3 ký tự để gửi lời tâm sự nhé ✍');return}state.hasLetter=true;state.ritual=1;state.blessing=blessings[Math.floor(Math.random()*blessings.length)];modal('letterModal',false);$('sceneSubtitle').textContent='Sớ đã viết xong! Mang đến cửa điện chính ở giữa sân.';updateAction();toast('📜 Đã niêm sớ! Hãy đến cửa điện chính để dâng sớ.');tone(880,.3)});
+  $('submitBtn').addEventListener('click',async()=>{
+    const s=$('karmaInput').value.trim();if(s.length<3){toast('Viết ít nhất 3 ký tự để gửi lời tâm sự nhé ✍');return}
+    const button=$('submitBtn');button.disabled=true;button.textContent='Đang treo sớ lên cây...';
+    try {
+      const res=await fetch('/api/notes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({author:nickname,content:s})});
+      const data=await res.json();if(!res.ok)throw Error(data.error||'Không thể lưu sớ');
+      state.hasLetter=true;state.ritual=1;state.blessing=blessings[Math.floor(Math.random()*blessings.length)];
+      modal('letterModal',false);$('sceneSubtitle').textContent='Lá sớ đã treo lên cây! Mang một bản vào điện chính.';
+      updateAction();toast('🍃 Đã treo sớ lên cây! Mọi người có thể đọc được.');tone(880,.3);
+    }catch(err){toast(err.message||'Không thể lưu sớ. Thử lại sau.');}
+    finally{button.disabled=false;button.textContent='📜 Treo lên cây và mang sớ vào điện →'}
+  });
   $('offerBtn').addEventListener('click',()=>{if(state.scene!=='inside'||state.ritual!==1)return;state.ritual=2;modal('offeringModal',false);modal('incenseModal',true);tone(640,.3)});
   $('incenseBtn').addEventListener('click',()=>{if(state.scene!=='inside'||state.ritual!==2)return;state.ritual=3;modal('incenseModal',false);$('blessingText').textContent='“'+state.blessing+'”';modal('blessingModal',true);tone(880,.3);setTimeout(()=>tone(1046,.4),240)});
   $('releaseBtn').addEventListener('click',()=>{if(state.ritual!==3)return;modal('blessingModal',false);state.scene='release';state.ritual=4;sendPosition(true);state.fishStart=-1;state.fishReleased=false;$('chapter').textContent='02 / HỒ SEN';$('sceneTitle').innerHTML='Thả muộn phiền,<br>giữ bình an.';$('sceneSubtitle').textContent='Một chú cá vàng đang chờ được về với làn nước.';$('releasePanel').classList.remove('hidden');$('dropFishBtn').classList.remove('hidden');$('againBtn').classList.add('hidden');$('releaseStatus').textContent='Một chú cá vàng đang đợi bạn...';$('releaseNote').textContent='Nhấn nút để xem chú cá bơi tự do dưới làn nước.';$('actionBtn').classList.add('hidden');$('controlTip').classList.add('hidden');$('mobileControls').classList.add('hidden');tone(523,.25)});
   $('dropFishBtn').addEventListener('click',()=>{if(state.fishReleased)return;state.fishReleased=true;state.fishStart=performance.now();state.count++;$('fishCount').textContent=String(state.count);try{localStorage.setItem('chuaonline_fish',String(state.count))}catch(_){}$('dropFishBtn').classList.add('hidden');$('releaseStatus').textContent='Cá vàng đã trở về hồ ✨';$('releaseNote').textContent='Mong điều vui đến gần, điều buồn trôi xa. Cá đang bơi trong hồ!';$('againBtn').classList.remove('hidden');tone(784,.35);setTimeout(()=>tone(1046,.4),240)});
   $('againBtn').addEventListener('click',()=>{state.scene='temple';sendPosition(true);state.player={x:610,y:610,dir:0,steps:0};state.keys.clear();state.joyX=0;state.joyY=0;resetJoystick();state.near=false;state.locked=false;state.ritual=0;state.hasLetter=false;state.blessing='';$('chapter').textContent='01 / SÂN CHÙA';$('sceneTitle').innerHTML='Viết sớ, dâng hương,<br>gửi muộn phiền.';$('sceneSubtitle').textContent='Viết sớ, vào điện dâng sớ và thắp hương để nhận cá vàng.';$('releasePanel').classList.add('hidden');$('actionBtn').classList.remove('hidden');$('controlTip').classList.remove('hidden');$('mobileControls').classList.remove('hidden');$('karmaInput').value='';$('charCount').textContent='0/400';updateAction()});
+  const fullscreenBtn=$('fullscreenBtn');
+  fullscreenBtn?.addEventListener('click', async()=>{
+    try {
+      if(document.fullscreenElement) await document.exitFullscreen();
+      else if(document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen();
+      else toast('Bạn có thể dùng tính năng Thêm vào màn hình chính để chơi rộng hơn.');
+    } catch(_){toast('Trình duyệt chưa cho phép chế độ toàn màn hình.');}
+  });
+  document.addEventListener('fullscreenchange',()=>{
+    if(fullscreenBtn) fullscreenBtn.title=document.fullscreenElement?'Thoát toàn màn hình':'Toàn màn hình';
+  });
   $('soundBtn').addEventListener('click',()=>{state.sound=!state.sound;$('soundBtn').textContent=state.sound?'♫':'♪';$('soundBtn').title=state.sound?'Tắt âm thanh':'Bật âm thanh';tone(740,.24);toast(state.sound?'Đã bật âm thanh ✨':'Đã tắt âm thanh')});
-  document.addEventListener('keydown',e=>{const key=e.key.toLowerCase();if(document.activeElement=== $('karmaInput')||document.activeElement===$('chatInput')||document.activeElement===$('nameInput'))return;if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(key))e.preventDefault();if(e.key==='Escape'){for(const id of ['letterModal','blessingModal','helpModal']){if(!$(id).classList.contains('hidden')){if(id==='blessingModal')return;modal(id,false);return}}}if(state.locked)return;if(key==='e'&&!e.repeat){interact();return}state.keys.add(key)});
+  document.addEventListener('keydown',e=>{const key=e.key.toLowerCase();if(document.activeElement=== $('karmaInput')||document.activeElement===$('chatInput')||document.activeElement===$('nameInput'))return;if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(key))e.preventDefault();if(e.key==='Escape'){for(const id of ['letterModal','treeModal','readNoteModal','blessingModal','helpModal']){if(!$(id).classList.contains('hidden')){if(id==='blessingModal')return;modal(id,false);return}}}if(state.locked)return;if(key==='e'&&!e.repeat){interact();return}state.keys.add(key)});
   document.addEventListener('keyup',e=>state.keys.delete(e.key.toLowerCase()));window.addEventListener('blur',()=>state.keys.clear());
   // Real analog virtual joystick: one pointer at a time, independent of screen aspect ratio.
   const joystick=$('joystick'), knob=$('joystickKnob');let activePointer=null;

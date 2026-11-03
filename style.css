@@ -19,3 +19,95 @@
 @media(hover:none),(pointer:coarse){.mobile-controls{display:flex}}
 @media(max-width:700px){.mobile-controls{bottom:calc(86px + env(safe-area-inset-bottom));left:12px}.bottom-hud{bottom:calc(136px + env(safe-area-inset-bottom));right:12px}.joystick{width:116px;height:116px}.chat-bar{bottom:calc(10px + env(safe-area-inset-bottom))}}
 @media(max-height:630px) and (pointer:coarse){.mobile-controls{bottom:58px}.bottom-hud{bottom:82px}.joystick{width:91px;height:91px}.joystick-knob{width:49px;height:49px;margin:-24.5px}}
+
+
+/* v3.2: mobile responsive layout, notch/safe-area, portrait + landscape */
+html,body{overscroll-behavior:none;-webkit-text-size-adjust:100%;touch-action:pan-x pan-y}
+.game-shell{height:100vh;height:100dvh;min-height:0}
+#game{touch-action:none}
+.topbar{padding-top:max(10px,env(safe-area-inset-top));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right))}
+.chat-bar input{font-size:16px} /* No iOS focus auto-zoom */
+.dialog input,.dialog textarea{font-size:16px}
+@media (max-width: 760px), (pointer:coarse){
+  .topbar{padding:calc(7px + env(safe-area-inset-top)) 10px 6px;align-items:flex-start;gap:4px}
+  .brand{gap:6px;font-size:clamp(9px,2.6vw,12px);letter-spacing:.4px;flex:0 1 auto;min-width:0}
+  .brand-mark{width:31px;height:31px;font-size:21px;border-radius:9px;flex-shrink:0}
+  .brand small{font-size:8px;white-space:nowrap;letter-spacing:0}
+  .top-actions{gap:4px;flex-wrap:nowrap;justify-content:flex-end}
+  #counterBadge{display:none}
+  .online-pill{position:static;min-height:31px;font-size:9px;padding:6px 8px;white-space:nowrap}
+  .icon-btn{width:32px;min-width:32px;min-height:32px;height:32px;font-size:17px;border-radius:9px}
+  .connection-pill{top:calc(47px + env(safe-area-inset-top));right:10px;font-size:9px;padding:5px 8px}
+  .scene-caption{top:calc(53px + env(safe-area-inset-top));left:12px;max-width:min(60vw,240px)}
+  .scene-caption h1{font-size:clamp(14px,4vw,22px);line-height:1.2;margin:4px 0}
+  .scene-caption p{display:none}
+  .scene-caption .chapter{font-size:9px}
+  .chat-bar{left:max(9px,env(safe-area-inset-left));right:max(9px,env(safe-area-inset-right));bottom:calc(7px + env(safe-area-inset-bottom));transform:none;width:auto;height:51px;padding:5px 6px 5px 9px;gap:6px;border-radius:14px}
+  .chat-bar input{font-size:16px;padding:7px 0;min-width:0}
+  .chat-bar button{font-size:12px;padding:9px 12px;min-height:38px}
+  .chat-icon{font-size:16px}
+  .mobile-controls{display:flex;bottom:calc(69px + env(safe-area-inset-bottom));left:max(12px,env(safe-area-inset-left));gap:2px}
+  .joystick{width:clamp(96px,28vw,132px);height:clamp(96px,28vw,132px)}
+  .joystick-ring{width:65%;height:65%}
+  .joystick-knob{width:46%;height:46%;margin:0;left:27%;top:27%}
+  .mobile-controls small{font-size:8px}
+  .bottom-hud{left:auto;right:max(11px,env(safe-area-inset-right));bottom:calc(92px + env(safe-area-inset-bottom));width:min(44vw,205px);z-index:11}
+  .control-tip{display:none}
+  .action-btn{width:100%;min-width:0;min-height:55px;white-space:normal;line-height:1.35;padding:9px;display:flex;align-items:center;justify-content:center;gap:5px;font-size:clamp(10px,2.8vw,12px)}
+  .action-key{display:none}
+  .action-btn>span:last-child{display:none}
+  .release-panel{bottom:calc(73px + env(safe-area-inset-bottom));width:min(92vw,360px);padding:13px 15px}
+  .release-status{font-size:17px;margin:5px 0 10px}
+  .release-note{margin-bottom:0}
+  .dialog-backdrop{padding:calc(8px + env(safe-area-inset-top)) 9px calc(8px + env(safe-area-inset-bottom))}
+  .dialog{max-height:calc(100dvh - 20px - env(safe-area-inset-top) - env(safe-area-inset-bottom));padding:15px 17px 18px;border-width:3px}
+  .dialog h2{font-size:clamp(21px,6vw,27px)}
+  .dialog-emblem{width:43px;height:43px;font-size:22px;margin-bottom:7px}
+  .dialog-copy{line-height:1.5;font-size:12px}
+  .dialog textarea{min-height:90px}
+  .toast{top:calc(92px + env(safe-area-inset-top));font-size:11px;max-width:90vw}
+  .footer-mark{display:none}
+}
+@media(max-width:360px){
+ .brand small{display:none}
+ .online-pill{font-size:8px;padding:5px}
+ .top-actions{gap:3px}
+ .icon-btn{width:29px;min-width:29px;height:29px;min-height:29px}
+ .chat-bar button{padding:8px}
+ .joystick{width:96px;height:96px}
+}
+@media(max-height:540px) and (orientation:landscape){
+ .scene-caption{display:none}
+ .topbar{padding-top:4px}
+ .connection-pill{display:none}
+ .mobile-controls{bottom:calc(12px + env(safe-area-inset-bottom));left:15px}
+ .joystick{width:88px;height:88px}
+ .mobile-controls small{display:none}
+ .chat-bar{bottom:calc(5px + env(safe-area-inset-bottom));left:50%;right:auto;transform:translateX(-50%);width:min(42vw,360px);height:42px}
+ .chat-bar input{font-size:16px}
+ .chat-bar button{min-height:30px;padding:5px 9px}
+ .bottom-hud{bottom:calc(18px + env(safe-area-inset-bottom));right:15px;width:min(29vw,165px)}
+ .action-btn{min-height:48px}
+ .dialog{max-width:620px;padding:10px 15px}
+ .dialog-emblem{display:none}
+ .dialog h2{font-size:20px;margin:5px 0}
+ .dialog-copy{margin:5px 0}
+ .dialog textarea{min-height:60px;max-height:80px}
+ .ceremony-illustration,.incense-art{margin:5px auto;height:65px}
+}
+@media (min-width:761px) and (pointer:fine){
+ .mobile-controls{display:none}
+}
+
+/* Chùa Online 3.3: public karma-note tree */
+.tree-pill{cursor:pointer;background:#3d583fdf;color:#fff4d9;border:1px solid #e0c48780;white-space:nowrap;font:inherit}
+.tree-pill:hover{background:#597450}
+.tree-dialog{width:min(510px,100%)}
+.note-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:15px 0;max-height:36dvh;overflow-y:auto;text-align:left}
+.note-card{border:1px solid #c5a66e;background:linear-gradient(145deg,#ffefc7,#edcc8d);color:#593f27;border-radius:12px;padding:12px;cursor:pointer;min-height:90px;overflow:hidden;text-align:left}
+.note-card b{display:block;font-size:12px;margin:3px 0 8px}.note-card small{display:block;color:#8b6640;font-size:10px;margin-bottom:5px}
+.note-card span{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:12px;line-height:1.5;overflow-wrap:anywhere}
+.note-card:hover{filter:brightness(1.04)}.note-paper{white-space:pre-wrap;overflow-wrap:anywhere;background:#fff2cc;border:1px solid #d6b776;border-radius:12px;padding:20px;text-align:left;line-height:1.8;font-size:15px;max-height:42dvh;overflow:auto;margin:18px 0}
+.note-author{font-size:12px;color:#906e46}.tree-pagination{display:flex;gap:8px;align-items:center;justify-content:center;font-size:12px}.tree-pagination .ghost-btn{width:auto;margin:0;color:#69452e;border-color:#a9895b;padding:10px 12px}.tree-pagination button:disabled{opacity:.4}
+@media(max-width:700px){.tree-pill{position:absolute;top:99px;right:13px;font-size:10px;padding:5px 9px}.tree-dialog .note-list{max-height:40dvh}.tree-dialog{padding:18px 15px}}
+@media(max-width:390px){.note-list{grid-template-columns:1fr}.tree-pill{font-size:9px}}

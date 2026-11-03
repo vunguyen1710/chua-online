@@ -3,16 +3,81 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
+const fs = require('fs/promises');
+const { Pool } = require('pg');
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { maxHttpBufferSize: 12000, cors: { origin: false } });
 const PORT = Number(process.env.PORT) || 3000;
 const MAX_PLAYERS = 60;
+// Render Free files are ephemeral: set DATABASE_URL to store notes durably in PostgreSQL.
+const databaseUrl = process.env.DATABASE_URL;
+const pool = databaseUrl ? new Pool({ connectionString:databaseUrl, ssl:process.env.PGSSL_DISABLE==='1' ? false : { rejectUnauthorized:false }, max:5 }) : null;
+const noteFile = path.join(__dirname, 'local-notes.json');
+let localNotes = [];
+let writeQueue = Promise.resolve();
+const noteRate = new Map();
+async function initNotes(){
+  if(pool){
+    await pool.query(`CREATE TABLE IF NOT EXISTS karma_notes (
+      id BIGSERIAL PRIMARY KEY,
+      author VARCHAR(18) NOT NULL,
+      content VARCHAR(400) NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )`);
+    console.log('Cây Khẩu Nghiệp: PostgreSQL connected');
+  } else {
+    try { localNotes=JSON.parse(await fs.readFile(noteFile,'utf8')); if(!Array.isArray(localNotes))localNotes=[]; }catch(_){localNotes=[];}
+    console.warn('Cây Khẩu Nghiệp: local JSON mode. Configure DATABASE_URL for persistent Render storage!');
+  }
+}
+async function getNotes(page,limit){
+  const offset=(page-1)*limit;
+  if(pool){const [rows,count]=await Promise.all([
+    pool.query('SELECT id, author, content, created_at AS "createdAt" FROM karma_notes ORDER BY id DESC LIMIT $1 OFFSET $2',[limit,offset]),
+    pool.query('SELECT COUNT(*)::int AS total FROM karma_notes')
+  ]);return {items:rows.rows.map(r=>({...r,id:String(r.id)})),total:count.rows[0].total};}
+  const a=[...localNotes].reverse();return {items:a.slice(offset,offset+limit),total:a.length};
+}
+async function addNote(author,content){
+  if(pool){const {rows}=await pool.query('INSERT INTO karma_notes(author,content) VALUES($1,$2) RETURNING id, author, content, created_at AS "createdAt"',[author,content]);return {...rows[0],id:String(rows[0].id)};}
+  const note={id:require('crypto').randomUUID(),author,content,createdAt:new Date().toISOString()};
+  localNotes.push(note);
+  writeQueue=writeQueue.catch(()=>{}).then(()=>fs.writeFile(noteFile+'.tmp',JSON.stringify(localNotes))).then(()=>fs.rename(noteFile+'.tmp',noteFile));
+  await writeQueue;return note;
+}
+
 const players = new Map();
 const colors = ['#8eb4a3','#daaf73','#97b0d6','#d88f94','#b9a0d7','#89bba6'];
 const clamp = (x,a,b) => Math.min(b, Math.max(a,x));
 const clean = (v,n) => typeof v === 'string' ? v.replace(/[\u0000-\u001f<>]/g,'').trim().slice(0,n) : '';
 app.disable('x-powered-by');
+app.use(express.json({limit:'8kb'}));
+app.get('/api/notes',async(req,res)=>{
+  const page=clamp(Number.parseInt(req.query.page,10)||1,1,100000),limit=clamp(Number.parseInt(req.query.limit,10)||12,1,40);
+  try{res.set('Cache-Control','no-store');res.json(await getNotes(page,limit));}
+  catch(err){console.error('Notes GET:',err.message);res.status(503).json({error:'Chưa thể đọc cây sớ, thử lại sau'});}
+});
+app.post('/api/notes',async(req,res)=>{
+  const author=clean(req.body?.author,18),content=clean(req.body?.content,400);
+  if(author.length<2||content.length<3)return res.status(400).json({error:'Tên hoặc sớ chưa hợp lệ (3–400 ký tự)'});
+  const ip=(req.ip||req.socket.remoteAddress||'').slice(0,100),now=Date.now();
+  if(now-(noteRate.get(ip)||0)<20000)return res.status(429).json({error:'Hãy đợi 20 giây trước khi treo sớ tiếp theo'});
+  noteRate.set(ip,now);
+  try{const note=await addNote(author,content);io.emit('noteAdded',note);res.status(201).json({note});}
+  catch(err){noteRate.delete(ip);console.error('Notes POST:',err.message);res.status(503).json({error:'Không thể lưu sớ, vui lòng thử lại'});}
+});
+// Optional moderation endpoint; never expose ADMIN_TOKEN to browser code.
+app.delete('/api/notes/:id',async(req,res)=>{
+  if(!process.env.ADMIN_TOKEN || req.get('x-admin-token')!==process.env.ADMIN_TOKEN)return res.status(403).json({error:'Không có quyền'});
+  const id=String(req.params.id||'');
+  try{
+    if(pool){if(!/^\d+$/.test(id))return res.status(400).json({error:'ID không hợp lệ'});await pool.query('DELETE FROM karma_notes WHERE id=$1',[id]);}
+    else {localNotes=localNotes.filter(n=>n.id!==id);writeQueue=writeQueue.catch(()=>{}).then(()=>fs.writeFile(noteFile+'.tmp',JSON.stringify(localNotes))).then(()=>fs.rename(noteFile+'.tmp',noteFile));await writeQueue;}
+    io.emit('notesRefresh');res.json({success:true});
+  }catch(err){console.error('Notes DELETE:',err.message);res.status(503).json({error:'Xóa thất bại'});}
+});
+setInterval(()=>{const cutoff=Date.now()-60000;for(const [key,t] of noteRate)if(t<cutoff)noteRate.delete(key)},60000).unref();
 app.get('/health', (_,res)=>res.json({status:'ok',online:players.size}));
 app.get('/', (_,res)=>res.sendFile(path.join(__dirname,'index.html')));
 for (const file of ['index.html','style.css','game.js']) app.get('/'+file, (_,res)=>res.sendFile(path.join(__dirname,file)));
@@ -49,4 +114,4 @@ io.on('connection', socket => {
     io.emit('playerLeft',socket.id);io.emit('online',players.size);
   });
 });
-server.listen(PORT,'0.0.0.0',()=>console.log(`Chùa Online Multiplayer: http://localhost:${PORT}`));
+initNotes().then(()=>server.listen(PORT,'0.0.0.0',()=>console.log(`Chùa Online Multiplayer: http://localhost:${PORT}`))).catch(err=>{console.error('Database startup error:',err);process.exit(1)});
