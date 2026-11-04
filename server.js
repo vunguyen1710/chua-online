@@ -83,6 +83,7 @@ app.get('/', (_,res)=>res.sendFile(path.join(__dirname,'index.html')));
 for (const file of ['index.html','style.css','game.js']) app.get('/'+file, (_,res)=>res.sendFile(path.join(__dirname,file)));
 app.use('/vendor/three', express.static(path.join(__dirname,'node_modules','three','build'), { maxAge:'7d' }));
 app.get('/inside3d.js', (_,res)=>res.sendFile(path.join(__dirname,'inside3d.js')));
+app.get('/outside3d.js', (_,res)=>res.sendFile(path.join(__dirname,'outside3d.js')));
 app.use('/assets', express.static(path.join(__dirname, 'assets'), { maxAge: '1d' }));
 io.on('connection', socket => {
   let lastMove=0,lastChat=0;

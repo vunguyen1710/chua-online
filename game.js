@@ -337,6 +337,8 @@ const MEDITATION_SPOTS = [{"x":255,"y":500},{"x":405,"y":500},{"x":795,"y":500},
     ctx.setTransform(dpr,0,0,dpr,0,0);
     ctx.fillStyle=state.scene==='release'?'#194759':state.scene==='inside'?'#a66d48':'#6a795c';
     ctx.fillRect(0,0,vw,vh);
+    // The old canvas is used only for the release pond and as a fallback if WebGL fails.
+    canvas.classList.toggle('scene-fallback-hidden',state.scene!=='release' && !!window.courtyard3D && !$('outside3d').classList.contains('hidden'));
     state.view={scale,offX,offY};
     ctx.setTransform(dpr*scale,0,0,dpr*scale,dpr*offX,dpr*offY);
     if(state.scene==='temple'){drawTemple();drawPeers();drawPlayer();sendPosition();window.courtyard3D?.sync({player:state.player,others:[...peers.entries()].map(([id,p])=>({...p,id,chat:p.bubble?.until>performance.now()?p.bubble.text:''})),name:nickname,bubble:myBubble?.until>performance.now()?myBubble.text:''})}else if(state.scene==='inside'){drawInside();drawPeers();drawPlayer();sendPosition();window.temple3D?.sync({player:{...state.player,meditating:state.meditating},others:[...peers.entries()].map(([id,p])=>({...p,id,chat:p.bubble?.until>performance.now()?p.bubble.text:''})),name:nickname,bubble:myBubble?.until>performance.now()?myBubble.text:''})}else drawRelease();requestAnimationFrame(render)}
@@ -408,5 +410,11 @@ const MEDITATION_SPOTS = [{"x":255,"y":500},{"x":405,"y":500},{"x":795,"y":500},
   joystick.addEventListener('pointermove',e=>{if(activePointer!==e.pointerId)return;e.preventDefault();setStick(e)});
   function endStick(e){if(activePointer!==e.pointerId)return;activePointer=null;state.joyX=0;state.joyY=0;resetJoystick()}
   joystick.addEventListener('pointerup',endStick);joystick.addEventListener('pointercancel',endStick);joystick.addEventListener('lostpointercapture',e=>{if(activePointer===e.pointerId)endStick(e)});
+  function beginCourtyard(){
+    try { if(window.courtyard3D?.enter()) { $('game').classList.add('scene-fallback-hidden'); $('outside3d').classList.remove('hidden'); } else { $('game').classList.remove('scene-fallback-hidden'); $('outside3d').classList.add('hidden'); } }
+    catch (error) { console.error('Không thể mở sân 3D:',error); $('game').classList.remove('scene-fallback-hidden'); $('outside3d').classList.add('hidden'); toast('Không tải được sân 3D, đã chuyển về cảnh dự phòng.'); }
+  }
+  window.addEventListener('courtyard3d-ready',beginCourtyard);
+  if(window.courtyard3D) beginCourtyard();
   state.locked=true;requestAnimationFrame(render);setTimeout(()=>toast('Bên phải: viết sớ cầu an • Bên trái: Cây Khẩu Nghiệp • Trong điện có đệm thiền 🪷'),800);
 })();

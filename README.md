@@ -33,3 +33,10 @@ Thay các file `game.js`, `inside3d.js`, `index.html`, `package.json`, `README.m
 5. Mở game trên hai thiết bị và thử đồng bộ nhân vật, chat, cùng các tính năng cũ.
 
 **Lưu ý:** Đã kiểm tra cú pháp mã nguồn. Chưa xác nhận trực quan trên mọi loại điện thoại/trình duyệt.
+
+
+## Chùa Online 5.0.1 – Fix sân 3D không hiện
+- `index.html` nạp `outside3d.js` qua module.
+- `server.js` phục vụ đường dẫn `/outside3d.js`.
+- `game.js` khởi chạy `courtyard3D.enter()` khi module đã sẵn sàng và giữ cảnh 2D làm dự phòng nếu WebGL bị lỗi.
+- Khi tải lại trên điện thoại, dùng refresh mạnh/xoá cache nếu vẫn thấy giao diện cũ.

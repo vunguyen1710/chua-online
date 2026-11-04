@@ -132,3 +132,5 @@ window.courtyard3D = {
     for(const [id,o] of peers){ if(!seen.has(id)){ scene.remove(o.group); peers.delete(id); } }
   }
 };
+
+window.dispatchEvent(new Event('courtyard3d-ready'));
