@@ -34,6 +34,27 @@ const cyl = (r1, r2, h, m, x, y, z, parent = scene) => {
   return mesh;
 };
 
+
+function makeTextTexture(text, bg='#fff0ce', fg='#493321', size=64, width=1024, height=256){
+  const c=document.createElement('canvas'); c.width=width; c.height=height;
+  const ctx=c.getContext('2d');
+  ctx.fillStyle=bg; ctx.beginPath(); ctx.roundRect(12,16,width-24,height-32,34); ctx.fill();
+  ctx.font=`bold ${size}px system-ui`; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillStyle=fg; ctx.fillText(String(text).slice(0,40), width/2, height/2, width-70);
+  const tex=new THREE.CanvasTexture(c); tex.colorSpace=THREE.SRGBColorSpace; return tex;
+}
+function textPlate3D(text, opts={}){
+  const { bg='#fff0ce', fg='#493321', size=64, width=4.2, height=1.0, depth=.14, edge='#6d5139', frontScale=.9, back=true } = opts;
+  const g=new THREE.Group();
+  const board=new THREE.Mesh(new THREE.BoxGeometry(width,height,depth), new THREE.MeshStandardMaterial({color:edge, roughness:.72, metalness:.08}));
+  g.add(board);
+  const tex=makeTextTexture(text,bg,fg,size);
+  const front=new THREE.Mesh(new THREE.PlaneGeometry(width*frontScale,height*.78), new THREE.MeshBasicMaterial({map:tex,transparent:true}));
+  front.position.z=depth/2+.003; g.add(front);
+  if(back){ const backPlane=new THREE.Mesh(new THREE.PlaneGeometry(width*frontScale,height*.78), new THREE.MeshBasicMaterial({map:tex,transparent:true})); backPlane.rotation.y=Math.PI; backPlane.position.z=-depth/2-.003; g.add(backPlane); }
+  g.userData.dispose=()=>{ tex.dispose(); for(const child of g.children){ if(child.material?.map) child.material.map.dispose?.(); child.material?.dispose?.(); child.geometry?.dispose?.(); } };
+  return g;
+}
 function textSprite(text, bg = '#fff0ce', fg = '#493321', size = 64) {
   const c = document.createElement('canvas'); c.width = 768; c.height = 192;
   const ctx = c.getContext('2d');
@@ -113,12 +134,12 @@ function makePerson(color = '#83a8a4') {
   const base = new THREE.Mesh(new THREE.CylinderGeometry(.52, .52, .12, 28), new THREE.MeshStandardMaterial({ color: '#7b5a3f', roughness: .9 }));
   base.position.set(0, .08, 0); g.add(base);
   const aura = createAuraRing(); g.add(aura);
-  const label = textSprite('Khách'); label.position.y = 2.75; g.add(label); g.userData.label = label;
+  const label = textPlate3D('Khách',{bg:'#fff4d9',fg:'#493321',size:54,width:1.9,height:.42,depth:.07,edge:'#6e5038',frontScale:.92}); label.position.y = 2.62; label.scale.set(.82,.82,.82); g.add(label); g.userData.label = label;
   const bubble = textSprite(''); bubble.position.y = 3.45; bubble.visible = false; g.add(bubble);
   g.userData.bubble = bubble; g.userData.bubbleText = ''; g.userData.base = base; g.userData.body = body; g.userData.head = head; g.userData.hair = hair; g.userData.aura = aura;
   return g;
 }
-function assignLabel(g, name) { g.remove(g.userData.label); const s = textSprite(name); s.position.y = 2.85; g.userData.label = s; g.add(s); }
+function assignLabel(g, name) { if(g.userData.label){ g.remove(g.userData.label); g.userData.label.userData?.dispose?.(); } const s = textPlate3D(name,{bg:'#fff4d9',fg:'#493321',size:54,width:1.9,height:.42,depth:.07,edge:'#6e5038',frontScale:.92}); s.position.y = 2.62; s.scale.set(.82,.82,.82); g.userData.label = s; g.add(s); }
 function assignBubble(g, text) {
   if (g.userData.bubbleText === text) return;
   g.remove(g.userData.bubble);
@@ -239,7 +260,7 @@ function buildExitDoor() {
   const leafR = new THREE.Group(); scene.add(leafR); leafR.position.set(1.2,0,12.82);
   const dl=box(2.05,4.0,.13,panel,0,2.2,0,leafL); const dr=box(2.05,4.0,.13,panel,0,2.2,0,leafR);
   leafL.rotation.y = -0.95; leafR.rotation.y = 0.95;
-  const exitText=textSprite('TRỞ RA KHU XẢ STRESS','#31523e','#f7efc7',34); exitText.scale.set(3.1,.78,1); exitText.position.set(0,4.88,13.02); scene.add(exitText);
+  const exitText=textPlate3D('TRỞ RA KHU XẢ STRESS',{bg:'#31523e',fg:'#f7efc7',size:34,width:3.4,height:.76,depth:.14,edge:'#213a2c'}); exitText.position.set(0,4.88,13.02); scene.add(exitText);
 }
 
 function setupCameraControls() {
@@ -436,7 +457,8 @@ function loop(now) {
   }
   for (const glow of sceneData.padGlows) glow.material.opacity = .2 + .12 * Math.sin(elapsed * 2 + (glow.userData.phase || 0));
   updateGroupPose(avatar, avatar.userData.meditating === true, dt, .3);
-  for (const p of peers.values()) updateGroupPose(p.group, p.meditating === true, dt, p.group.position.x || 0);
+  if(avatar?.userData?.label) avatar.userData.label.lookAt(camera.position);
+  for (const p of peers.values()) { updateGroupPose(p.group, p.meditating === true, dt, p.group.position.x || 0); if(p.group.userData.label) p.group.userData.label.lookAt(camera.position); }
   for (let i = virtuePopups.length - 1; i >= 0; i--) {
     const pop = virtuePopups[i]; pop.life += dt;
     const t = pop.life / 1.2;

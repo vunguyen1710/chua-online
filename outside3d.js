@@ -15,6 +15,48 @@ const box = (w,h,d,m,x,y,z,parent=scene)=>{const mesh=new THREE.Mesh(new THREE.B
 const sphere=(r,m,x,y,z,parent=scene)=>{const mesh=new THREE.Mesh(new THREE.SphereGeometry(r,24,18),m);mesh.position.set(x,y,z);parent.add(mesh);return mesh;};
 const cyl=(r1,r2,h,m,x,y,z,parent=scene)=>{const mesh=new THREE.Mesh(new THREE.CylinderGeometry(r1,r2,h,24),m);mesh.position.set(x,y,z);parent.add(mesh);return mesh;};
 
+
+function makeTextTexture(text, bg='#fff0ce', fg='#493321', size=64, width=1024, height=256){
+  const c=document.createElement('canvas'); c.width=width; c.height=height;
+  const ctx=c.getContext('2d');
+  ctx.fillStyle=bg; ctx.beginPath(); ctx.roundRect(12,16,width-24,height-32,34); ctx.fill();
+  ctx.font=`bold ${size}px system-ui`; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillStyle=fg; ctx.fillText(String(text).slice(0,40), width/2, height/2, width-70);
+  const tex=new THREE.CanvasTexture(c); tex.colorSpace=THREE.SRGBColorSpace; return tex;
+}
+function textPlate3D(text, opts={}){
+  const {
+    bg='#fff0ce', fg='#493321', size=64, width=4.2, height=1.0, depth=.14,
+    edge='#6d5139', frontScale=.9, back=true
+  } = opts;
+  const g = new THREE.Group();
+  const board = new THREE.Mesh(
+    new THREE.BoxGeometry(width, height, depth),
+    new THREE.MeshStandardMaterial({ color: edge, roughness:.72, metalness:.08 })
+  );
+  g.add(board);
+  const tex = makeTextTexture(text, bg, fg, size);
+  const front = new THREE.Mesh(
+    new THREE.PlaneGeometry(width*frontScale, height*.78),
+    new THREE.MeshBasicMaterial({ map: tex, transparent: true })
+  );
+  front.position.z = depth/2 + .003; g.add(front);
+  if(back){
+    const backPlane = new THREE.Mesh(
+      new THREE.PlaneGeometry(width*frontScale, height*.78),
+      new THREE.MeshBasicMaterial({ map: tex, transparent: true })
+    );
+    backPlane.rotation.y = Math.PI; backPlane.position.z = -depth/2 - .003; g.add(backPlane);
+  }
+  g.userData.dispose = () => {
+    tex.dispose();
+    for(const child of g.children){
+      if(child.material?.map) child.material.map.dispose?.();
+      child.material?.dispose?.(); child.geometry?.dispose?.();
+    }
+  };
+  return g;
+}
 function textSprite(text, bg='#fff0ce', fg='#493321', size=64){
   const c=document.createElement('canvas'); c.width=1024; c.height=256;
   const ctx=c.getContext('2d');
@@ -25,7 +67,7 @@ function textSprite(text, bg='#fff0ce', fg='#493321', size=64){
   const sprite=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthTest:false}));
   sprite.scale.set(4.2,1.02,1); return sprite;
 }
-function assignLabel(g,name){ if(g.userData.lastName===name)return; if(g.userData.label){g.remove(g.userData.label);g.userData.label.material.map?.dispose();g.userData.label.material.dispose();} const s=textSprite(name); s.position.y=2.85; g.userData.label=s;g.userData.lastName=name; g.add(s); }
+function assignLabel(g,name){ if(g.userData.lastName===name)return; if(g.userData.label){ g.remove(g.userData.label); g.userData.label.userData?.dispose?.(); } const s=textPlate3D(name,{bg:'#fff4d9',fg:'#493321',size:54,width:1.9,height:.42,depth:.07,edge:'#6e5038',frontScale:.92}); s.position.y=2.62; s.scale.set(.82,.82,.82); g.userData.label=s; g.userData.lastName=name; g.add(s); }
 function assignBubble(g,text){
   if(g.userData.bubbleText===text) return;
   if(g.userData.bubble){g.remove(g.userData.bubble);g.userData.bubble.material.map?.dispose();g.userData.bubble.material.dispose();}
@@ -137,14 +179,14 @@ function buildStressHouseFallback(){
   box(4.8,2.6,4.4,body,-8.1,1.8,-1.8,g); const awn=new THREE.Mesh(new THREE.BoxGeometry(4.9,.22,5.1), roof); awn.position.set(-8.1,3.35,-1.8); awn.rotation.z=.15; g.add(awn);
   box(4.8,2.6,4.4,body,8.1,1.8,-1.8,g); const awn2=new THREE.Mesh(new THREE.BoxGeometry(4.9,.22,5.1), roof); awn2.position.set(8.1,3.35,-1.8); awn2.rotation.z=-.15; g.add(awn2);
   // sign
-  const sign=textSprite('NHÀ XẢ STRESS','#2e5b47','#fef1be',42); sign.scale.set(5.6,1,1); sign.position.set(0,4.35,5.42); g.add(sign);
+  const sign=textPlate3D('NHÀ XẢ STRESS',{bg:'#2e5b47',fg:'#fef1be',size:44,width:5.8,height:1.02,depth:.18,edge:'#1d3f31'}); sign.position.set(0,4.35,5.42); g.add(sign);
   doorGlow = ringMarker(LOCATIONS.door,'#fff2a0',1.1);
   return g;
 }
 function buildVentDeskFallback(){
   const pos=LOCATIONS.desk; const g=new THREE.Group(); g.position.set(pos.x,0,pos.z); scene.add(g);
   box(3.2,.2,1.4,col('#8b5a38'),0,1.18,0,g); for(const x of [-1.25,1.25]) for(const z of [-.45,.45]) box(.16,1.05,.16,col('#644328'),x,.53,z,g);
-  box(1.9,.08,.7,col('#f0e4ba'),0,1.38,0,g); box(.7,.08,.08,col('#da7e58'),0,1.52,.2,g); const sign=textSprite('BÀN XẢ BỰC', '#71482d', '#fff0c1', 36); sign.scale.set(3.6,.82,1); sign.position.set(0,3.0,.2); g.add(sign);
+  box(1.9,.08,.7,col('#f0e4ba'),0,1.38,0,g); box(.7,.08,.08,col('#da7e58'),0,1.52,.2,g); const sign=textPlate3D('BÀN XẢ BỰC',{bg:'#71482d',fg:'#fff0c1',size:38,width:3.8,height:.82,depth:.14,edge:'#56341f'}); sign.position.set(0,3.0,.2); g.add(sign);
   ringMarker(pos,'#ffd98f',1.0);
 }
 function buildSmashZoneFallback(){
@@ -153,7 +195,7 @@ function buildSmashZoneFallback(){
   smashBag = new THREE.Group(); smashBag.position.set(0,0,0); g.add(smashBag);
   cyl(.09,.09,2.7,col('#6c4a36'),0,2.2,0,smashBag); box(1.1,.12,.12,col('#6c4a36'),0,3.42,0,smashBag);
   const bag=cyl(.42,.48,1.55,col('#c7483c',.55,.05),0,1.55,0,smashBag); bag.name='bag'; box(.08,.22,.08,col('#deb87a'),0,2.4,0,smashBag);
-  const sign=textSprite('KHU ĐẬP PHÁ', '#8a3e34', '#fff1c9', 36); sign.scale.set(3.6,.82,1); sign.position.set(0,4.4,0); g.add(sign);
+  const sign=textPlate3D('KHU ĐẬP PHÁ',{bg:'#8a3e34',fg:'#fff1c9',size:38,width:3.8,height:.82,depth:.14,edge:'#6a2f28'}); sign.position.set(0,4.4,0); g.add(sign);
   box(.7,.7,.7,col('#9a7c61'),-1.1,.35,.8,g); box(.8,.4,.6,col('#b89574'),1.05,.2,.7,g); box(.4,.4,.4,col('#87705d'),.9,.2,-.9,g);
   smashPulse = ringMarker(pos,'#ffb067',1.1);
 }
@@ -166,7 +208,7 @@ function buildDeadlineArena(){
   const lip=new THREE.Mesh(new THREE.TorusGeometry(2.74,.08,8,48),edge);
   lip.rotation.x=Math.PI/2; lip.position.y=.3;group.add(lip);
   const stand=box(.26,2.1,.26,col('#63507a'),0,1.25,-2.25,group);
-  const title=textSprite('ĐẬP TAN DEADLINE','#49305f','#ffedbb',37);title.scale.set(4.3,.95,1);title.position.set(0,3.2,-2.25);group.add(title);
+  const title=textPlate3D('ĐẬP TAN DEADLINE',{bg:'#49305f',fg:'#ffedbb',size:38,width:4.5,height:.92,depth:.14,edge:'#342246'});title.position.set(0,3.2,-2.25);group.add(title);
   const labels=['DEADLINE','KPI','DRAMA','ÁP LỰC','MỆT MỎI'];
   arenaTargets=[];
   const geometries=[new THREE.IcosahedronGeometry(.65,1),new THREE.BoxGeometry(1.05,1.05,1.05),new THREE.DodecahedronGeometry(.61,0)];
@@ -253,7 +295,7 @@ function loadKarmaTree(){
     model.position.set(pos.x,0,pos.z);
     model.scale.set(.86,.86,.86);
     scene.add(model);
-    const sign=textSprite('CÂY KHẨU NGHIỆP','#6d321e','#ffefbf',38); sign.scale.set(4.2,.9,1); sign.position.set(pos.x,8.5,pos.z+.2); scene.add(sign);
+    const sign=textPlate3D('CÂY KHẨU NGHIỆP',{bg:'#6d321e',fg:'#ffefbf',size:40,width:4.4,height:.88,depth:.16,edge:'#512313'}); sign.position.set(pos.x,8.5,pos.z+.2); scene.add(sign);
     ringMarker(pos,'#ffdb92',1.15);
   }, undefined, () => {
     // fallback simple tree
@@ -310,7 +352,8 @@ function animateFeedback(now){
 }
 function loop(now){ requestAnimationFrame(loop); if(!entered||!renderer) return; const dt=Math.min((now-last)/1000,.06); last=now;
   if(avatar?.userData?.body){ avatar.userData.walk += dt*7; const bob = Math.sin(avatar.userData.walk)*.03; avatar.userData.body.position.y = 1.02 + bob; }
-  for(const peer of peers.values()){ peer.group.userData.walk += dt*7; const bob = peer.moving ? Math.sin(peer.group.userData.walk)*.04 : 0; peer.group.userData.body.position.y = 1.02 + bob; }
+  if(avatar?.userData?.label) avatar.userData.label.lookAt(camera.position);
+  for(const peer of peers.values()){ peer.group.userData.walk += dt*7; const bob = peer.moving ? Math.sin(peer.group.userData.walk)*.04 : 0; peer.group.userData.body.position.y = 1.02 + bob; if(peer.group.userData.label) peer.group.userData.label.lookAt(camera.position); }
   animateFeedback(now); renderer.render(scene,camera);
 }
 function setup(){
