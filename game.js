@@ -97,9 +97,9 @@
     if(myBubble?.until>performance.now())wrapBubble(myBubble.text,state.player.x,state.player.y-102);
     if(joined) {rounded(state.player.x-45,state.player.y+16,90,21,9);ctx.fillStyle='#624728e8';ctx.fill();text(nickname,state.player.x,state.player.y+27,11,'#fff1c9','center','sans-serif','700');}
   }
-  async function startJoin() {
+  function startJoin() {
     const n=safeName($('nameInput').value);if(n.length<2){toast('Tên cần ít nhất 2 ký tự');return;}
-    await unlockAudio();
+    unlockAudio(); // best effort only; joining must never wait for audio
     nickname=n;joined=true;state.locked=false;$('joinModal').classList.add('hidden');
     try{localStorage.setItem('chuaonline_name',n)}catch(_){}
     if(socket?.connected)socket.emit('join',{name:n});sendPosition(true);
@@ -152,6 +152,19 @@ const MEDITATION_SPOTS = [{"x":255,"y":500},{"x":405,"y":500},{"x":795,"y":500},
     }else shrineMusic.pause();
   }
   document.addEventListener('visibilitychange',syncShrineMusic);
+  // Called inside an actual tap/click/key gesture. Never await it during navigation.
+  // Mobile browsers may reject media playback: that is normal and must not stop the game.
+  function unlockAudio(){
+    try {
+      audioCtx ||= new (window.AudioContext || window.webkitAudioContext)();
+      if(audioCtx.state==='suspended') {
+        const resume=audioCtx.resume();
+        if(resume && typeof resume.catch==='function') resume.catch(()=>{});
+      }
+    } catch (_) {}
+    // For mobile Safari/Chrome: initiate playback in the user gesture while inside the shrine.
+    if(state.scene==='inside' && state.sound) syncShrineMusic();
+  }
   function tone(freq=660,duration=.17,vol=.05){if(!state.sound)return;try{audioCtx ||= new (window.AudioContext||window.webkitAudioContext)();const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type='sine';o.frequency.setValueAtTime(freq,audioCtx.currentTime);o.frequency.exponentialRampToValueAtTime(freq*.67,audioCtx.currentTime+duration);g.gain.setValueAtTime(vol,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(.001,audioCtx.currentTime+duration);o.connect(g).connect(audioCtx.destination);o.start();o.stop(audioCtx.currentTime+duration)}catch(_){}}
   const rounded = (x,y,w,h,r=12)=>{ctx.beginPath();ctx.roundRect(x,y,w,h,r);};
   function fill(x,y,w,h,color){ctx.fillStyle=color;ctx.fillRect(x,y,w,h)}
@@ -343,7 +356,7 @@ const MEDITATION_SPOTS = [{"x":255,"y":500},{"x":405,"y":500},{"x":795,"y":500},
     if(state.scene==='inside'&&state.meditationSpot){state.meditating=true;state.meditateClock=0;state.player.x=state.meditationSpot.x;state.player.y=state.meditationSpot.y;toast('🪷 Bạn đang ngồi thiền... mỗi giây cộng 1 tích đức. Vuốt để xoay góc nhìn.');updateAction();sendPosition(true);tone(560,.25);return;}
     if(state.scene==='inside'&&state.ritual===1&&Math.hypot(state.player.x-600,state.player.y-460)<105){modal('offeringModal',true);tone(720)}
   }
-  $('actionBtn').addEventListener('click',async()=>{await unlockAudio();interact();});
+  $('actionBtn').addEventListener('click',()=>{unlockAudio();interact();});
   $('helpBtn').addEventListener('click',()=>modal('helpModal',true));
   document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',()=>modal(b.dataset.close,false)));
   $('prayerInput').addEventListener('input',()=>{$('prayerCharCount').textContent=$('prayerInput').value.length+'/400'});
@@ -382,7 +395,7 @@ const MEDITATION_SPOTS = [{"x":255,"y":500},{"x":405,"y":500},{"x":795,"y":500},
   document.addEventListener('fullscreenchange',()=>{
     if(fullscreenBtn) fullscreenBtn.title=document.fullscreenElement?'Thoát toàn màn hình':'Toàn màn hình';
   });
-  $('soundBtn').addEventListener('click',async()=>{await unlockAudio();state.sound=!state.sound;try{localStorage.setItem('chuaonline_audio',state.sound?'on':'off')}catch(_){}$('soundBtn').textContent=state.sound?'♫':'♪';$('soundBtn').title=state.sound?'Tắt âm thanh và nhạc thiền':'Bật âm thanh và nhạc thiền';syncShrineMusic();tone(740,.24);toast(state.sound?'Đã bật nhạc thiền và âm thanh ✨':'Đã tắt nhạc thiền và âm thanh')});
+  $('soundBtn').addEventListener('click',()=>{unlockAudio();state.sound=!state.sound;try{localStorage.setItem('chuaonline_audio',state.sound?'on':'off')}catch(_){}$('soundBtn').textContent=state.sound?'♫':'♪';$('soundBtn').title=state.sound?'Tắt âm thanh và nhạc thiền':'Bật âm thanh và nhạc thiền';syncShrineMusic();tone(740,.24);toast(state.sound?'Đã bật nhạc thiền và âm thanh ✨':'Đã tắt nhạc thiền và âm thanh')});
   document.addEventListener('keydown',e=>{const key=e.key.toLowerCase();if(document.activeElement=== $('karmaInput')||document.activeElement=== $('prayerInput')||document.activeElement===$('chatInput')||document.activeElement===$('nameInput'))return;if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(key))e.preventDefault();if(e.key==='Escape'){for(const id of ['letterModal','karmaWriteModal','treeModal','readNoteModal','blessingModal','helpModal']){if(!$(id).classList.contains('hidden')){if(id==='blessingModal')return;modal(id,false);return}}}if(state.locked)return;if(key==='e'&&!e.repeat){interact();return}state.keys.add(key)});
   document.addEventListener('keyup',e=>state.keys.delete(e.key.toLowerCase()));window.addEventListener('blur',()=>state.keys.clear());
   // Real analog virtual joystick: one pointer at a time, independent of screen aspect ratio.

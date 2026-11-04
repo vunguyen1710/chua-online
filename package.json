@@ -1,6 +1,6 @@
 {
   "name": "chua-online-multiplayer",
-  "version": "3.9.0",
+  "version": "4.0.1",
   "private": true,
   "description": "Mini game chua online nhieu nguoi choi thoi gian thuc",
   "main": "server.js",
