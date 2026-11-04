@@ -3,7 +3,7 @@ import * as THREE from '/vendor/three/three.module.js';
 const host = document.getElementById('outside3d');
 let renderer, scene, camera, avatar, entered = false;
 let peers = new Map(), last = performance.now(), elapsed = 0;
-let cameraYaw = 0, cameraPitch = 0.42, cameraDistance = 18.2;
+let cameraYaw = 0, cameraPitch = 0.32, cameraDistance = 8.8;
 let dragPointer = null, dragLastX = 0, dragLastY = 0;
 
 const col = (hex, roughness = .78, metalness = 0, emissive = null, emissiveIntensity = 0) =>
@@ -46,13 +46,51 @@ function mapPosition(p){
   return { x: THREE.MathUtils.clamp(x, -19.4, 19.4), z: THREE.MathUtils.clamp(z, -10.8, 11.6) };
 }
 
-function makeRoofSegment(w,d,y,z,color='#5b2c1d',edge='#c99a4c', parent=scene){
+// Gabled tiled roof constructed from actual pitched faces. No rotated flat box sections.
+// The roof is centered on parent origin; eaves y=0, ridge y=ridgeRise.
+function makeRoofSegment(w,d,y,z,color='#7e3825',edge='#d39755', parent=scene, ridgeRise=1.65){
   const g=new THREE.Group(); g.position.set(0,y,z); parent.add(g);
-  const roofMat=col(color,.7,.02), edgeMat=col(edge,.35,.35);
-  const left=new THREE.Mesh(new THREE.BoxGeometry(w*.5,.22,d), roofMat); left.position.set(-w*.125,0,0); left.rotation.z=.28; g.add(left);
-  const right=new THREE.Mesh(new THREE.BoxGeometry(w*.5,.22,d), roofMat); right.position.set(w*.125,0,0); right.rotation.z=-.28; g.add(right);
-  box(w*.98,.10,.22,edgeMat,0,-.3,d*.45,g); box(w*.98,.10,.22,edgeMat,0,-.3,-d*.45,g);
-  const ridge=box(w*.12,.22,d*.9,edgeMat,0,.2,0,g); ridge.rotation.x=Math.PI/2;
+  const tileMat=col(color,.82,.01), edgeMat=col(edge,.48,.13), dark=col('#48251c',.82);
+  const halfW=w/2,halfD=d/2;
+  // Pitched panels, sharing a continuous ridge (roof slope follows the X axis).
+  const planes=[
+    [[-halfW,0,-halfD], [0,ridgeRise,-halfD], [0,ridgeRise,halfD],[-halfW,0,halfD]],
+    [[0,ridgeRise,-halfD],[halfW,0,-halfD],[halfW,0,halfD],[0,ridgeRise,halfD]],
+  ];
+  for(const corners of planes){
+    const v=corners.flat();
+    const geo=new THREE.BufferGeometry();
+    geo.setAttribute('position',new THREE.Float32BufferAttribute(v,3));
+    geo.setIndex([0,1,2,0,2,3]); geo.computeVertexNormals();
+    const mat=tileMat.clone(); mat.side=THREE.DoubleSide;
+    const face=new THREE.Mesh(geo,mat); g.add(face);
+  }
+  // Vertical triangular ends under the ridge; stable roof silhouette from all camera angles.
+  for(const frontZ of [-halfD,halfD]){
+    const geo=new THREE.BufferGeometry();
+    geo.setAttribute('position',new THREE.Float32BufferAttribute([-halfW,0,frontZ,halfW,0,frontZ,0,ridgeRise,frontZ],3));
+    geo.setIndex([0,1,2]); geo.computeVertexNormals();
+    const mesh=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({color:'#673421',roughness:.86,side:THREE.DoubleSide}));g.add(mesh);
+    box(w,.13,.16,edgeMat,0,-.035,frontZ,g);
+    const halfSlope=Math.hypot(halfW,ridgeRise);
+    for(const sign of [-1,1]){
+      const slope=new THREE.Mesh(new THREE.BoxGeometry(halfSlope,.13,.14),edgeMat);
+      slope.position.set(sign*halfW/2,ridgeRise/2,frontZ);
+      slope.rotation.z=sign===-1?Math.atan2(ridgeRise,halfW):-Math.atan2(ridgeRise,halfW);
+      g.add(slope);
+    }
+  }
+  // Tile courses follow each face in depth and add a readable terracotta rhythm.
+  const courses=Math.max(4,Math.floor(d/.58));
+  for(let k=1;k<courses;k++){
+    const zz=-halfD+k*d/courses;
+    for(const side of [-1,1]){
+      const x=side*halfW*.51,y=ridgeRise*(1-.51)+.014;
+      const strip=new THREE.Mesh(new THREE.BoxGeometry(Math.hypot(halfW,ridgeRise)*.98,.026,.043),dark);
+      strip.position.set(x,y,zz);strip.rotation.z=side===-1?Math.atan2(ridgeRise,halfW):-Math.atan2(ridgeRise,halfW);g.add(strip);
+    }
+  }
+  box(.22,.22,d+.22,edgeMat,0,ridgeRise+.025,0,g);
   return g;
 }
 
@@ -110,50 +148,75 @@ function buildKarmaTree(x,z){
 }
 
 function buildTemple(){
-  const wall=col('#a8472f'), trim=col('#deb163', .32, .4), roof=col('#4e2619'), wood=col('#6b341f'), stone=col('#b89a77'), plaqueBg=col('#68271d');
-  const temple = new THREE.Group(); temple.position.set(0,0,-18.2); scene.add(temple);
-
-  // platform and stairs
-  box(24,.9,13,stone,0,.45,0,temple);
-  box(20,.28,10.5,col('#cfb58e'),0,1.04,.2,temple);
-  for(let i=0;i<4;i++) box(8.6-i*1.3,.18,1.2,col('#d8c2a1'),0,.18+i*.18,5.8+i*.78,temple);
-  for(const x of [-8.8,-4.4,4.4,8.8]){ const lion=sphere(.35,col('#ddd1bc',.75,.02),x,1.25,5.5,temple); lion.scale.set(1,.8,1); }
-  // main body
-  box(18,.22,10.5,trim,0,5.7,-.8,temple);
-  box(18.6,5.3,.8,wall,0,3.45,-5.6,temple); // back wall
-  box(.8,5.3,10.3,wall,-8.9,3.45,-.7,temple);
-  box(.8,5.3,10.3,wall,8.9,3.45,-.7,temple);
-  // side wings
-  box(5.2,4.5,6.2,wall,-11.6,2.95,-1.4,temple); box(5.2,4.5,6.2,wall,11.6,2.95,-1.4,temple);
-  // front columns and railings
-  for(const x of [-7.2,-4.8,-2.4,0,2.4,4.8,7.2]) cyl(.33,.35,4.9,col('#8c2d23'),x,2.48,4.1,temple);
-  box(18,.22,.5,trim,0,1.72,5.0,temple);
-  for(const x of [-8,-4,0,4,8]) box(.22,1.1,.22,trim,x,1.25,5.0,temple);
-  // doors
-  box(7.2,4.2,.28,wood,0,2.15,4.7,temple);
-  for(const dx of [-2.38,0,2.38]){
-    box(2.05,3.55,.12,col('#87462c'),dx,1.95,4.92,temple);
-    for(let i=-2;i<=2;i++) box(.08,3.15,.04,trim,dx,1.95,4.96+i*.38,temple);
+  const redWall=col('#a64a31',.79), cream=col('#d9bb91',.78), gold=col('#d5a55e',.42,.27);
+  const wood=col('#6d3424',.68), darkWood=col('#47241c',.74), stone=col('#bba286',.88);
+  const temple=new THREE.Group();temple.position.set(0,0,-18.2);scene.add(temple);
+  // Continuous raised foundation, not a floating collection of pieces.
+  box(25,.92,13.6,stone,0,.46,.2,temple);
+  box(21,.18,11.5,cream,0,1.01,-.1,temple);
+  // Steps rise steadily toward the entrance (nearer to player = positive Z).
+  for(let i=0;i<4;i++){
+    box(10.5-i*.35,.20,1.15,col(i%2?'#c4ab8c':'#d7c0a1',.88),0,.19+i*.2,8.4-i*.91,temple);
   }
-  for(const x of [-12.4,12.4]){
-    box(2.6,2.2,.18,wood,x,2.5,1.8,temple);
-    for(let i=-2;i<=2;i++) box(.06,1.7,.05,trim,x,2.5,1.78+i*.28,temple);
-    for(const y of [1.9,2.5,3.1]) box(2.25,.05,.05,trim,x,y,1.78,temple);
+  for(const x of [-8.5,8.5]){
+    const base=box(1.1,.68,1.1,stone,x,1.36,5.7,temple);
+    sphere(.37,cream,x,1.98,5.7,temple);
   }
-
-  // roofs and decorative elements
-  makeRoofSegment(20,7,6.55,2.1,'#552718','#d3a54a',temple);
-  makeRoofSegment(26,8.8,7.6,0.9,'#4a2114','#c99542',temple);
-  makeRoofSegment(6.4,4.4,5.7,-1.5,'#542719','#c99542',temple.children.find(()=>false) || temple); // harmless extra piece if ignored
-  // wing roofs
-  const leftWing = new THREE.Group(); leftWing.position.set(-11.5,5.45,.15); temple.add(leftWing); makeRoofSegment(6.8,5.3,0,0,'#56291a','#cf9d46',leftWing);
-  const rightWing = new THREE.Group(); rightWing.position.set(11.5,5.45,.15); temple.add(rightWing); makeRoofSegment(6.8,5.3,0,0,'#56291a','#cf9d46',rightWing);
-  // plaque
-  box(6.8,1.25,.44,plaqueBg,0,6.0,4.7,temple); box(7.1,.12,.5,trim,0,6.66,4.63,temple); box(7.1,.12,.5,trim,0,5.34,4.63,temple);
-  const sign=textSprite('ĐIỆN QUAN ÂM','#68271d','#ffe6a1',44); sign.scale.set(6.0,1.22,1); sign.position.set(0,6.0,5.0); temple.add(sign);
-  // lanterns and incense urns outside
-  for(const x of [-6.2,-3.1,3.1,6.2]){ lanternPole(x+temple.position.x, temple.position.z+6.2, 2.5); }
-  for(const x of [-7.8,7.8]){ const urn=cyl(.38,.5,.6,col('#8b6a47',.65,.05),x,1.2,4.8,temple); const flower=sphere(.22,col('#ea88a8',.45),x,1.65,4.8,temple); flower.scale.set(.9,1.2,.9); }
+  // Solid building, with deep front portico and paired side wings.
+  box(18.4,4.9,.65,redWall,0,3.52,-5.65,temple);
+  for(const x of [-8.85,8.85])box(.62,4.9,10.5,redWall,x,3.52,-.5,temple);
+  box(5.1,4.0,6.25,redWall,-11.25,3.0,-1.5,temple);
+  box(5.1,4.0,6.25,redWall,11.25,3.0,-1.5,temple);
+  // Doors are visible in the portico without central pillars or railings in front.
+  box(6.75,4.12,.22,darkWood,0,3.08,4.65,temple);
+  for(const x of [-1.68,1.68]){
+    box(3.13,3.72,.13,wood,x,3.02,4.83,temple);
+    for(const j of [-1,0,1])box(.067,3.38,.065,gold,x+j*.76,3.0,4.916,temple);
+    for(const yy of [1.75,3.0,4.3])box(2.87,.07,.06,gold,x,yy,4.917,temple);
+    sphere(.07,gold,Math.sign(x)*.31,2.94,4.94,temple);
+  }
+  // Door lintel and outer beams. Columns connect floor to underside of front roof.
+  box(18.6,.34,.66,wood,0,5.78,4.1,temple);
+  box(18.4,.19,.72,gold,0,6.0,4.1,temple);
+  const columnRed=col('#912f28',.46),columnGold=col('#e0b469',.42,.23);
+  for(const x of [-7.65,-5.45,-3.5,3.5,5.45,7.65]){
+    cyl(.32,.36,4.85,columnRed,x,3.59,4.45,temple); // bottom 1.165, top 6.015
+    cyl(.48,.48,.22,columnGold,x,1.22,4.45,temple);
+    cyl(.47,.47,.2,columnGold,x,6.02,4.45,temple);
+  }
+  // Two railing sections only: leave a clear central gap for the entrance.
+  for(const side of [-1,1]){
+    const xx=side*6.95;
+    box(4.3,.18,.24,cream,xx,2.15,5.23,temple);
+    for(let i=-2;i<=2;i++)box(.15,.9,.18,cream,xx+i*.85,1.63,5.23,temple);
+  }
+  for(const x of [-11.35,11.35]){
+    box(2.62,2.28,.17,darkWood,x,3.05,1.8,temple);
+    for(let i=-2;i<=2;i++)box(.07,1.89,.07,gold,x+i*.4,3.05,1.92,temple);
+    for(const yy of [2.28,3.05,3.82])box(2.25,.07,.06,gold,x,yy,1.92,temple);
+  }
+  // Main double-tier roof: upper ridge / lower eave are correctly connected.
+  // Front porch: eave rests above column capitals (y≈6.25), ridge at ≈8.25.
+  makeRoofSegment(20.7,8.0,6.34,2.6,'#7f3828','#d7a55e',temple,2.0);
+  // Upper tier rises above the first roof; separate setback keeps tiers legible.
+  box(12.9,1.2,5.1,redWall,0,7.47,-1.2,temple);
+  makeRoofSegment(15.2,6.7,8.1,-1.2,'#843f2b','#d5a25a',temple,1.55);
+  // Side wings have their own lower pitched roofs; no stray center roof.
+  const leftWing=new THREE.Group();leftWing.position.set(-11.35,0,-1.5);temple.add(leftWing);
+  makeRoofSegment(6.3,7.4,5.13,0,'#82402b','#d5a25a',leftWing,1.2);
+  const rightWing=new THREE.Group();rightWing.position.set(11.35,0,-1.5);temple.add(rightWing);
+  makeRoofSegment(6.3,7.4,5.13,0,'#82402b','#d5a25a',rightWing,1.2);
+  // 3D plaque is kept below the eave and above the door, with a small forward offset.
+  box(6.3,.83,.32,darkWood,0,5.57,5.0,temple);
+  box(6.55,.09,.39,gold,0,6.04,5.0,temple);
+  box(6.55,.09,.39,gold,0,5.1,5.0,temple);
+  const sign=textSprite('ĐIỆN QUAN ÂM','#68271d','#ffe6a1',43);
+  sign.scale.set(5.62,.82,1);sign.position.set(0,5.58,5.22);temple.add(sign);
+  for(const x of [-6.15,-3.0,3.0,6.15])lanternPole(x,-11.85,2.6);
+  for(const x of [-8,8]){
+    cyl(.4,.48,.6,col('#8b6a47',.65),x,1.42,4.8,temple);
+    sphere(.2,col('#eb9dab'),x,1.92,4.8,temple);
+  }
   return temple;
 }
 
@@ -164,6 +227,63 @@ function buildPond(){
   for(const [x,z,s] of [[-19.1,12.4,.7],[-16.9,10.4,.6],[-20.2,10.7,.55],[-17.4,13.9,.5],[-18.5,9.2,.42]]){
     const lotus=new THREE.Group(); lotus.position.set(x,.06,z); scene.add(lotus); sphere(.12,col('#edd08b', .4,.15),0,.05,0,lotus);
     for(let i=0;i<8;i++){ const a=i*Math.PI*2/8; const p=sphere(.16*s,col('#e48ca9'),Math.cos(a)*.26*s,.03,Math.sin(a)*.26*s,lotus); p.scale.set(.7,1.1,.9);} }
+}
+
+
+function buildCourtyardTiles(){
+  const tileMatA = col('#a7adb1', .95, 0), tileMatB = col('#969da2', .95, 0), groutMat = col('#737a7f', 1, 0);
+  const base = new THREE.Mesh(new THREE.BoxGeometry(34.8,.1,24.8), new THREE.MeshStandardMaterial({color:'#8a8f94', roughness:.98}));
+  base.position.set(0,.03,3.8); scene.add(base);
+  const tileW=1.55, tileD=1.55, startX=-16.15, startZ=-7.55;
+  for(let ix=0; ix<22; ix++){
+    for(let iz=0; iz<15; iz++){
+      const tone = ((ix+iz)%2===0) ? tileMatA : tileMatB;
+      const tile = new THREE.Mesh(new THREE.BoxGeometry(1.42,.045,1.42), tone);
+      tile.position.set(startX + ix*tileW, .08, startZ + iz*tileD + 3.8);
+      tile.rotation.y = ((ix*7+iz*11)%3)*0.02;
+      scene.add(tile);
+    }
+  }
+  for(let ix=0; ix<23; ix++) box(.06,.02,24.2,groutMat,startX - .73 + ix*tileW,.06,3.8);
+  for(let iz=0; iz<16; iz++) box(34.2,.02,.06,groutMat,0,.06,startZ - .74 + iz*tileD + 3.8);
+}
+
+function buildBoundaryWall(){
+  const wallMat = col('#f2efe7', .92, 0), trimMat = col('#c6473e', .68, .04), roofMat = col('#d1783b', .62, .08), capMat = col('#c7beb0', .88, .02);
+  const makeWallSection = (w, x, z, rotY=0, gate=false) => {
+    const g = new THREE.Group(); g.position.set(x,0,z); g.rotation.y = rotY; scene.add(g);
+    if(!gate){
+      box(w,3.6,.42,wallMat,0,1.8,0,g);
+      box(w,.18,.52,capMat,0,3.67,0,g);
+      box(w,.24,.7,roofMat,0,4.0,0,g);
+      // small red windows
+      const gap = 3.7; const count = Math.max(1, Math.floor((w-2.2)/gap));
+      const offset = -((count-1)*gap)/2;
+      for(let i=0;i<count;i++){
+        const px = offset + i*gap;
+        box(.95,1.05,.06,trimMat,px,2.1,.23,g);
+        box(.82,.92,.045,col('#f7f4ef', .94, 0),px,2.1,.25,g);
+        for(let k=-1;k<=1;k++) box(.03,.72,.03,trimMat,px+k*.23,2.1,.27,g);
+        for(const yy of [1.83,2.1,2.37]) box(.74,.03,.03,trimMat,px,yy,.27,g);
+      }
+    } else {
+      // leave a central gateway opening
+      const side = (w-8)/2;
+      box(side,3.6,.42,wallMat,-(4+side/2),1.8,0,g);
+      box(side,3.6,.42,wallMat,(4+side/2),1.8,0,g);
+      box(side,.18,.52,capMat,-(4+side/2),3.67,0,g); box(side,.18,.52,capMat,(4+side/2),3.67,0,g);
+      box(side,.24,.7,roofMat,-(4+side/2),4.0,0,g); box(side,.24,.7,roofMat,(4+side/2),4.0,0,g);
+      box(9.2,.24,.7,roofMat,0,4.35,0,g); box(8.4,.16,.5,capMat,0,4.05,0,g);
+    }
+  };
+  makeWallSection(66,0,-27.8,0,false);
+  makeWallSection(66,0,27.8,0,true);
+  makeWallSection(54,-33,0,Math.PI/2,false);
+  makeWallSection(54,33,0,Math.PI/2,false);
+  // gateway pillars front center
+  const pillarMat = col('#ad3f35', .66, .06);
+  for(const x of [-4.2,4.2]){ box(.72,4.5,.72,pillarMat,x,2.25,27.8); box(.88,.16,.88,capMat,x,4.55,27.8); }
+  box(10.2,.28,.82,roofMat,0,4.65,27.8); box(9.3,.18,.6,capMat,0,4.35,27.8);
 }
 
 function buildScene(){
@@ -213,13 +333,14 @@ function setupControls(){
   host.addEventListener('pointerdown', e=>{ if(!entered) return; dragPointer=e.pointerId; dragLastX=e.clientX; dragLastY=e.clientY; host.setPointerCapture?.(e.pointerId); });
   host.addEventListener('pointermove', e=>{ if(dragPointer!==e.pointerId||!entered) return; const dx=e.clientX-dragLastX, dy=e.clientY-dragLastY; dragLastX=e.clientX; dragLastY=e.clientY; cameraYaw -= dx*0.0075; cameraPitch = THREE.MathUtils.clamp(cameraPitch - dy*0.0028, .23, .64); });
   const end = e=>{ if(dragPointer===e.pointerId) dragPointer=null; };
+  host.addEventListener('wheel',e=>{if(!entered)return;e.preventDefault();cameraDistance=THREE.MathUtils.clamp(cameraDistance+Math.sign(e.deltaY)*.6,6.5,13);},{passive:false});
   host.addEventListener('pointerup', end); host.addEventListener('pointercancel', end); host.addEventListener('lostpointercapture', end);
 }
-function resize(){ if(!renderer||!camera) return; const w=Math.max(1,host.clientWidth), h=Math.max(1,host.clientHeight); renderer.setSize(w,h,false); camera.aspect=w/h; camera.fov=w<h?78:63; camera.updateProjectionMatrix(); }
+function resize(){ if(!renderer||!camera) return; const w=Math.max(1,host.clientWidth), h=Math.max(1,host.clientHeight); renderer.setSize(w,h,false); camera.aspect=w/h; camera.fov=w<h?72:59; camera.updateProjectionMatrix(); }
 function updateCamera(playerPos){
   const radiusXZ = cameraDistance*Math.cos(cameraPitch);
-  const target = new THREE.Vector3(playerPos.x, 1.95, playerPos.z + .9);
-  const desired = target.clone().add(new THREE.Vector3(Math.sin(cameraYaw)*radiusXZ, cameraDistance*Math.sin(cameraPitch)+1.8, Math.cos(cameraYaw)*radiusXZ));
+  const target = new THREE.Vector3(playerPos.x, 1.5, playerPos.z + .4);
+  const desired = target.clone().add(new THREE.Vector3(Math.sin(cameraYaw)*radiusXZ, cameraDistance*Math.sin(cameraPitch)+.2, Math.cos(cameraYaw)*radiusXZ));
   camera.position.lerp(desired,.08); camera.lookAt(target);
 }
 function loop(now){ requestAnimationFrame(loop); if(!entered||!renderer) return; const dt=Math.min((now-last)/1000,.06); last=now; elapsed+=dt;

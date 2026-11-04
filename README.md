@@ -40,3 +40,10 @@ Thay các file `game.js`, `inside3d.js`, `index.html`, `package.json`, `README.m
 - `server.js` phục vụ đường dẫn `/outside3d.js`.
 - `game.js` khởi chạy `courtyard3D.enter()` khi module đã sẵn sàng và giữ cảnh 2D làm dự phòng nếu WebGL bị lỗi.
 - Khi tải lại trên điện thoại, dùng refresh mạnh/xoá cache nếu vẫn thấy giao diện cũ.
+
+
+## Bản 5.3 – camera gần và mái điện 3D
+- Camera sân chùa ở gần nhân vật hơn, xoay bằng kéo chuột/vuốt; trên máy tính lăn chuột để chỉnh khoảng cách.
+- Mái điện dùng hai mặt dốc nối vào sống mái và hai mái cánh trái/phải, không còn đoạn mái rời ở giữa.
+- Cột đỏ được bố trí hai bên cửa, liền với chân và đầu cột; cửa chính chừa lối vào giữa.
+- Giữ sân lát gạch xám, tường trắng cửa sổ đỏ, mái ngói cam, cây khẩu nghiệp và logic Multiplayer.
