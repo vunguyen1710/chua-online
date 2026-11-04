@@ -85,6 +85,7 @@ app.use('/vendor/three/addons', express.static(path.join(__dirname,'node_modules
 app.use('/vendor/three', express.static(path.join(__dirname,'node_modules','three','build'), { maxAge:'7d' }));
 app.get('/inside3d.js', (_,res)=>{res.set('Cache-Control','no-store, max-age=0');res.sendFile(path.join(__dirname,'inside3d.js'));});
 app.get('/outside3d.js', (_,res)=>{res.set('Cache-Control','no-store, max-age=0');res.sendFile(path.join(__dirname,'outside3d.js'));});
+app.get('/river3d.js', (_,res)=>{res.set('Cache-Control','no-store, max-age=0');res.sendFile(path.join(__dirname,'river3d.js'));});
 app.use('/assets', express.static(path.join(__dirname, 'assets'), { maxAge: '0' }));
 io.on('connection', socket => {
   let lastMove=0,lastChat=0;
@@ -104,7 +105,7 @@ io.on('connection', socket => {
     const now=Date.now();if(now-lastMove<45)return;lastMove=now;
     if(!Number.isFinite(data.x)||!Number.isFinite(data.y))return;
     p.x=clamp(Math.round(data.x),37,1163);p.y=clamp(Math.round(data.y),390,721);
-    p.dir=data.dir===-1?-1:1;p.scene=['temple','inside','release'].includes(data.scene)?data.scene:'temple';p.moving=data.moving===true;p.meditating=data.meditating===true;
+    p.dir=data.dir===-1?-1:1;p.scene=['temple','inside','release','river'].includes(data.scene)?data.scene:'temple';p.moving=data.moving===true;p.meditating=data.meditating===true;
     socket.broadcast.volatile.emit('playerMoved',{id:p.id,x:p.x,y:p.y,dir:p.dir,scene:p.scene,moving:p.moving,meditating:p.meditating});
   });
   socket.on('chat', data=>{
@@ -118,4 +119,4 @@ io.on('connection', socket => {
     io.emit('playerLeft',socket.id);io.emit('online',players.size);
   });
 });
-initNotes().then(()=>server.listen(PORT,'0.0.0.0',()=>console.log(`Chùa Online Multiplayer: http://localhost:${PORT}`))).catch(err=>{console.error('Database startup error:',err);process.exit(1)});
+initNotes().then(()=>server.listen(PORT,'0.0.0.0',()=>console.log(`Xả Stress Online Multiplayer: http://localhost:${PORT}`))).catch(err=>{console.error('Database startup error:',err);process.exit(1)});

@@ -5,7 +5,7 @@
   if (!ctx) { alert('Trình duyệt không hỗ trợ Canvas 2D.'); return; }
   const $ = id => document.getElementById(id);
   const W = 1200, H = 760;
-  const state = { scene:'temple', keys:new Set(), player:{x:610,y:610,dir:0,steps:0}, time:0, near:false, locked:false, fishStart:-1, fishReleased:false, ritual:0, nearTree:false, nearSmash:false, nearArena:false, hasLetter:false, blessing:'', joyX:0, joyY:0, particles:[], sound:false, last:0, count:0, virtue:0, meditating:false, meditateClock:0, nearMeditation:false, meditationSpot:null };
+  const state = { scene:'temple', keys:new Set(), player:{x:610,y:610,dir:0,steps:0}, time:0, near:false, locked:false, fishStart:-1, fishReleased:false, ritual:0, nearTree:false, nearSmash:false, nearArena:false, nearRiver:false, hasLetter:false, blessing:'', joyX:0, joyY:0, particles:[], sound:false, last:0, count:0, virtue:0, meditating:false, meditateClock:0, nearMeditation:false, meditationSpot:null };
   try { state.count = Math.max(0, Number(localStorage.getItem('xastress_relief') || 0) || 0); } catch (_) {}
   $('fishCount').textContent = String(state.count);
   try { state.virtue = Math.max(0, Number(localStorage.getItem('xastress_calm') || 0) || 0); } catch (_) {}
@@ -71,7 +71,7 @@
   function sendPosition(force=false) {
     if(!socket?.connected || !joined)return;
     const now=performance.now(); if(!force && now-lastSent<60)return;lastSent=now;
-    socket.emit('move', {x:Math.round(state.player.x),y:Math.round(state.player.y),dir:state.player.dir,scene:state.scene,moving:(!state.meditating)&&(state.keys.size>0||Math.hypot(state.joyX,state.joyY)>.13),meditating:state.meditating===true});
+    socket.emit('move', {x:Math.round(state.player.x),y:Math.round(state.player.y),dir:state.player.dir,scene:state.scene,moving:(state.scene!=='river'&&!state.meditating)&&(state.keys.size>0||Math.hypot(state.joyX,state.joyY)>.13),meditating:(state.scene==='river'?!!window.river3D?.isFloating?.():state.meditating===true)});
   }
   function wrapBubble(value,x,y){
     const lines=[], words=value.split(/\s+/);let line='';
@@ -131,7 +131,7 @@
   ];
   const rand = (a,b)=> a+Math.random()*(b-a);
 const MEDITATION_SPOTS = [{"x":255,"y":500},{"x":405,"y":500},{"x":795,"y":500},{"x":945,"y":500},{"x":255,"y":600},{"x":405,"y":600},{"x":795,"y":600},{"x":945,"y":600},{"x":255,"y":700},{"x":405,"y":700},{"x":795,"y":700},{"x":945,"y":700}];
-  const ZONES={tree:{x:130,y:430,r:145},desk:{x:1070,y:470,r:117},door:{x:600,y:420,r:100},smash:{x:220,y:640,r:96},arena:{x:980,y:640,r:96},ritual:{x:600,y:460,r:105}};
+  const ZONES={tree:{x:130,y:430,r:145},desk:{x:1070,y:470,r:117},door:{x:600,y:420,r:100},smash:{x:220,y:640,r:96},arena:{x:980,y:640,r:96},river:{x:600,y:550,r:80},ritual:{x:600,y:460,r:105}};
   // Compare in the same metric as the 3D world (32.5 px per X unit; 15.4 px per Z unit).
   // This keeps click/interaction radii centered exactly on the 3D marker rather than on old pixel circles.
   function near3D(zone,radius){return Math.hypot((state.player.x-zone.x)/32.5,(state.player.y-zone.y)/15.4)<radius;}
@@ -323,11 +323,12 @@ const MEDITATION_SPOTS = [{"x":255,"y":500},{"x":405,"y":500},{"x":795,"y":500},
     state.nearTree=state.scene==='temple'&&near3D(ZONES.tree,3.2);
     state.nearSmash=state.scene==='temple'&&near3D(ZONES.smash,2.3);
     state.nearArena=state.scene==='temple'&&near3D(ZONES.arena,2.3);
+    state.nearRiver=state.scene==='temple'&&near3D(ZONES.river,2.5);
     if(arena.active){if(performance.now()>=arena.end||!state.nearArena)endArena();else updateArenaUI();}
     state.meditationSpot=nearestMeditationSpot(); state.nearMeditation=!!state.meditationSpot || state.meditating;
-    if(state.scene==='temple') near=state.nearTree||state.nearSmash||state.nearArena||near3D(ZONES.desk,2.25)||near3D(ZONES.door,2.1);
+    if(state.scene==='temple') near=state.nearTree||state.nearSmash||state.nearArena||state.nearRiver||near3D(ZONES.desk,2.25)||near3D(ZONES.door,2.1);
     else near=state.meditating||!!state.meditationSpot||(state.ritual===1&&Math.hypot(state.player.x-ZONES.ritual.x,state.player.y-ZONES.ritual.y)<ZONES.ritual.r)||(Math.abs(state.player.x-600)<105&&state.player.y>=688);
-    if(near!==state.near||state.lastNearTree!==state.nearTree||state.lastNearMeditation!==state.nearMeditation||state.lastNearSmash!==state.nearSmash||state.lastNearArena!==state.nearArena){state.near=near;state.lastNearTree=state.nearTree;state.lastNearMeditation=state.nearMeditation;state.lastNearSmash=state.nearSmash;state.lastNearArena=state.nearArena;updateAction()}}
+    if(near!==state.near||state.lastNearTree!==state.nearTree||state.lastNearMeditation!==state.nearMeditation||state.lastNearSmash!==state.nearSmash||state.lastNearArena!==state.nearArena||state.lastNearRiver!==state.nearRiver){state.near=near;state.lastNearTree=state.nearTree;state.lastNearMeditation=state.nearMeditation;state.lastNearSmash=state.nearSmash;state.lastNearArena=state.nearArena;state.lastNearRiver=state.nearRiver;updateAction()}}
     // Responsive camera: preserve world coordinates (1200×760) for Socket.IO.
     // Keep the player in the usable center area above the mobile joystick/chat.
     const bounds=canvas.getBoundingClientRect();
@@ -345,11 +346,11 @@ const MEDITATION_SPOTS = [{"x":255,"y":500},{"x":405,"y":500},{"x":795,"y":500},
     ctx.fillStyle=state.scene==='release'?'#194759':state.scene==='inside'?'#a66d48':'#6a795c';
     ctx.fillRect(0,0,vw,vh);
     // The old canvas is used only for the release pond and as a fallback if WebGL fails.
-    canvas.classList.toggle('scene-fallback-hidden',state.scene!=='release' && !!window.courtyard3D && !$('outside3d').classList.contains('hidden'));
+    canvas.classList.toggle('scene-fallback-hidden',state.scene==='river' || (state.scene!=='release' && !!window.courtyard3D && !$('outside3d').classList.contains('hidden')));
     state.view={scale,offX,offY};
     ctx.setTransform(dpr*scale,0,0,dpr*scale,dpr*offX,dpr*offY);
-    if(state.scene==='temple'){drawTemple();drawPeers();drawPlayer();sendPosition();window.courtyard3D?.sync({player:state.player,others:[...peers.entries()].map(([id,p])=>({...p,id,chat:p.bubble?.until>performance.now()?p.bubble.text:''})),name:nickname,bubble:myBubble?.until>performance.now()?myBubble.text:''})}else if(state.scene==='inside'){drawInside();drawPeers();drawPlayer();sendPosition();window.temple3D?.sync({player:{...state.player,meditating:state.meditating},others:[...peers.entries()].map(([id,p])=>({...p,id,chat:p.bubble?.until>performance.now()?p.bubble.text:''})),name:nickname,bubble:myBubble?.until>performance.now()?myBubble.text:''})}else drawRelease();requestAnimationFrame(render)}
-  function updateAction(){const enabled=state.scene!=='release'&&state.near&&!state.locked;$('actionBtn').disabled=!enabled;const atDesk=state.scene==='temple'&&near3D(ZONES.desk,2.25);const atDoor=state.scene==='temple'&&near3D(ZONES.door,2.1);$('actionLabel').textContent=state.meditating?'🌿 Đứng dậy khỏi đệm thư giãn':state.nearMeditation?'🧘 Ngồi thư giãn (+1 bình tĩnh/giây)':state.nearTree?'🌳 Cây Khẩu Nghiệp':state.nearSmash?'🥊 Đập bao cát xả stress':state.nearArena?'💥 Đấu trường Deadline 3D':atDesk?'📝 Viết điều đang bực':atDoor?'🏠 Vào Nhà Hồi Phục':state.scene==='inside'?(state.player.y>=688&&Math.abs(state.player.x-600)<105?'🚪 Trở lại khu xả stress':state.ritual===1?'📦 Bỏ vào Hộp Xả Bực':'🌿 Vào đệm thư giãn'):'Hãy đến một khu tương tác'}
+    if(state.scene==='temple'){drawTemple();drawPeers();drawPlayer();sendPosition();window.courtyard3D?.sync({player:state.player,others:[...peers.entries()].map(([id,p])=>({...p,id,chat:p.bubble?.until>performance.now()?p.bubble.text:''})),name:nickname,bubble:myBubble?.until>performance.now()?myBubble.text:''})}else if(state.scene==='inside'){drawInside();drawPeers();drawPlayer();sendPosition();window.temple3D?.sync({player:{...state.player,meditating:state.meditating},others:[...peers.entries()].map(([id,p])=>({...p,id,chat:p.bubble?.until>performance.now()?p.bubble.text:''})),name:nickname,bubble:myBubble?.until>performance.now()?myBubble.text:''})}else if(state.scene==='river'){const rp=window.river3D?.getNetworkPosition?.();if(rp){state.player.x=rp.x;state.player.y=rp.y;}sendPosition();window.river3D?.syncPeers?.([...peers.entries()].map(([id,p])=>({...p,id})));}else drawRelease();requestAnimationFrame(render)}
+  function updateAction(){const enabled=state.scene!=='release'&&state.scene!=='river'&&state.near&&!state.locked;$('actionBtn').disabled=!enabled;const atDesk=state.scene==='temple'&&near3D(ZONES.desk,2.25);const atDoor=state.scene==='temple'&&near3D(ZONES.door,2.1);$('actionLabel').textContent=state.meditating?'🌿 Đứng dậy khỏi đệm thư giãn':state.nearMeditation?'🧘 Ngồi thư giãn (+1 bình tĩnh/giây)':state.nearTree?'🌳 Cây Khẩu Nghiệp':state.nearSmash?'🥊 Đập bao cát xả stress':state.nearArena?'💥 Đấu trường Deadline 3D':state.nearRiver?'🌊 Đến Thung Lũng Trôi Sông':atDesk?'📝 Viết điều đang bực':atDoor?'🏠 Vào Nhà Hồi Phục':state.scene==='inside'?(state.player.y>=688&&Math.abs(state.player.x-600)<105?'🚪 Trở lại khu xả stress':state.ritual===1?'📦 Bỏ vào Hộp Xả Bực':'🌿 Vào đệm thư giãn'):'Hãy đến một khu tương tác'}
   function modal(id,show){$(id).classList.toggle('hidden',!show);state.locked=show;state.keys.clear();state.joyX=0;state.joyY=0;resetJoystick();updateAction()}
   let toastTimer;function toast(s){$('toast').textContent=s;$('toast').classList.add('visible');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').classList.remove('visible'),2800)}
 
@@ -385,10 +386,45 @@ const MEDITATION_SPOTS = [{"x":255,"y":500},{"x":405,"y":500},{"x":795,"y":500},
     tone(430+Math.min(450,arena.combo*23),.12,.025);updateArenaUI();
   }
   $('arenaStopBtn')?.addEventListener('click',endArena);
+  function enterRiver(){
+    if(arena.active)endArena();
+    window.courtyard3D?.exit();window.temple3D?.exit();
+    if(!window.river3D?.enter?.()){
+      window.courtyard3D?.enter();toast('Không thể mở khu sông 3D trên thiết bị này.');return;
+    }
+    state.scene='river'; state.near=false;state.nearTree=false;state.nearArena=false;state.nearRiver=false;state.nearSmash=false;
+    state.keys.clear();state.joyX=0;state.joyY=0;resetJoystick();syncShrineMusic();
+    $('chapter').textContent='03 / THUNG LŨNG TRÔI SÔNG';
+    $('sceneTitle').innerHTML='Thả mình trôi sông,<br>quay về điểm bắt đầu.';
+    $('sceneSubtitle').textContent='Nằm theo dòng sông vòng tròn 3D, ngắm núi và quay lại bến sau mỗi vòng.';
+    $('riverPanel').classList.remove('hidden');$('actionBtn').classList.add('hidden');
+    $('mobileControls').classList.add('hidden');$('controlTip').classList.add('hidden');
+    $('riverFloatBtn').textContent='🌊 Bắt đầu trôi'; $('riverFloatBtn').disabled=!window.river3D?.getState?.().ready;window.river3D?.setName?.(nickname);
+    sendPosition(true);toast('🌊 Bạn đã đến Thung Lũng Trôi Sông 3D!');
+  }
+  function leaveRiver(){
+    if(state.scene!=='river')return;
+    window.river3D?.exit?.();state.scene='temple';
+    state.player.x=600;state.player.y=550;
+    state.keys.clear();state.joyX=0;state.joyY=0;resetJoystick();state.near=false;
+    window.courtyard3D?.enter();syncShrineMusic();sendPosition(true);
+    $('chapter').textContent='01 / KHU XẢ STRESS';
+    $('sceneTitle').innerHTML='Xả bực, thư giãn,<br>và treo khẩu nghiệp.';
+    $('sceneSubtitle').textContent='Bạn đã trở lại sân chính. Cổng Thung Lũng Trôi Sông luôn mở để bạn ghé lại.';
+    $('riverPanel').classList.add('hidden');$('actionBtn').classList.remove('hidden');
+    $('mobileControls').classList.remove('hidden');$('controlTip').classList.remove('hidden');
+    updateAction();toast('Bạn đã quay lại khu xả stress.');
+  }
+  $('riverFloatBtn').addEventListener('click',()=>{
+    if(state.scene!=='river')return;
+    const ok=window.river3D?.toggle?.();if(!ok)toast('Đang tải địa hình hoặc tuyến sông, vui lòng thử lại.');
+  });
+  $('riverExitBtn').addEventListener('click',leaveRiver);
   function interact(){if(!state.near||state.locked||!joined)return;
     if(state.scene==='temple'&&state.nearTree){showTree();return;}
     if(state.scene==='temple'&&state.nearSmash){setVirtue(state.virtue+2); window.courtyard3D?.flashSmash?.(); toast('🥊 Bạn vừa đập bao cát tượng trưng. +2 bình tĩnh'); tone(520,.18); setTimeout(()=>tone(460,.15),120); updateAction(); return;}
     if(state.scene==='temple'&&state.nearArena){ playArena(); return; }
+    if(state.scene==='temple'&&state.nearRiver){ enterRiver(); return; }
     if(state.scene==='temple'&&near3D(ZONES.desk,2.25)){if(state.ritual!==0){toast('Bạn đã viết xong điều muốn xả, hãy mang nó vào Nhà Hồi Phục.');return;}modal('letterModal',true);$('prayerInput').focus();tone(660);return;}
     if(state.scene==='temple'&&near3D(ZONES.door,2.1)){state.scene='inside';state.player.x=600;state.player.y=695;window.courtyard3D?.exit();window.temple3D?.enter();syncShrineMusic();state.near=false;sendPosition(true);$('chapter').textContent='02 / NHÀ HỒI PHỤC';$('sceneTitle').innerHTML='Nhà Hồi Phục 3D,<br>thở chậm và dịu lại.';$('sceneSubtitle').textContent='Bạn có thể vào ngồi thư giãn tự do. Nếu đã viết điều bực riêng tư, hãy đem vào Hộp Xả Bực. Joystick tự theo hướng camera.';updateAction();tone(660);return;}
     if(state.scene==='inside'&&state.player.y>=688&&Math.abs(state.player.x-600)<105&&!state.meditating){
@@ -443,7 +479,7 @@ const MEDITATION_SPOTS = [{"x":255,"y":500},{"x":405,"y":500},{"x":795,"y":500},
     if(fullscreenBtn) fullscreenBtn.title=document.fullscreenElement?'Thoát toàn màn hình':'Toàn màn hình';
   });
   $('soundBtn').addEventListener('click',()=>{unlockAudio();state.sound=!state.sound;try{localStorage.setItem('chuaonline_audio',state.sound?'on':'off')}catch(_){}$('soundBtn').textContent=state.sound?'♫':'♪';$('soundBtn').title=state.sound?'Tắt âm thanh và nhạc thư giãn':'Bật âm thanh và nhạc thư giãn';syncShrineMusic();tone(740,.24);toast(state.sound?'Đã bật nhạc thư giãn và âm thanh ✨':'Đã tắt nhạc thư giãn và âm thanh')});
-  document.addEventListener('keydown',e=>{const key=e.key.toLowerCase();if(document.activeElement=== $('karmaInput')||document.activeElement=== $('prayerInput')||document.activeElement===$('chatInput')||document.activeElement===$('nameInput'))return;if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(key))e.preventDefault();if(e.key==='Escape'){for(const id of ['letterModal','karmaWriteModal','treeModal','readNoteModal','blessingModal','helpModal']){if(!$(id).classList.contains('hidden')){if(id==='blessingModal')return;modal(id,false);return}}}if(state.locked)return;if(key==='e'&&!e.repeat){interact();return}state.keys.add(key)});
+  document.addEventListener('keydown',e=>{const key=e.key.toLowerCase();if(document.activeElement=== $('karmaInput')||document.activeElement=== $('prayerInput')||document.activeElement===$('chatInput')||document.activeElement===$('nameInput'))return;if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(key))e.preventDefault();if(e.key==='Escape'&&state.scene==='river'){leaveRiver();return;}if(e.key==='Escape'){for(const id of ['letterModal','karmaWriteModal','treeModal','readNoteModal','blessingModal','helpModal']){if(!$(id).classList.contains('hidden')){if(id==='blessingModal')return;modal(id,false);return}}}if(state.locked)return;if(key==='e'&&!e.repeat){interact();return}state.keys.add(key)});
   document.addEventListener('keyup',e=>state.keys.delete(e.key.toLowerCase()));window.addEventListener('blur',()=>state.keys.clear());
   // Real analog virtual joystick: one pointer at a time, independent of screen aspect ratio.
   const joystick=$('joystick'), knob=$('joystickKnob');let activePointer=null;

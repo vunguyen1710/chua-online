@@ -133,3 +133,14 @@ html,body{overscroll-behavior:none;-webkit-text-size-adjust:100%;touch-action:pa
 .arena-panel{position:absolute;z-index:14;top:125px;right:18px;max-width:310px;padding:14px 16px;border:1px solid #cca3ff88;border-radius:16px;background:#251a39e9;color:#fff6df;box-shadow:0 8px 30px #130a2866;font:600 14px/1.6 system-ui,sans-serif;backdrop-filter:blur(9px)}
 .arena-panel b{font-size:15px;color:#ead4ff}.arena-panel small{display:block;color:#dbcde8;font-size:11px}.arena-panel button{margin-top:8px;border:1px solid #d5aaff88;border-radius:9px;color:#f9ebff;background:#6b438a;padding:6px 12px;cursor:pointer}
 @media(max-width:700px){.arena-panel{top:93px;left:12px;right:12px;max-width:none;padding:8px 12px;font-size:12px}.arena-panel b{font-size:13px}.arena-panel small{font-size:10px}.arena-panel button{margin-top:4px;padding:4px 8px}}
+
+/* v6.7 — dedicated river scene and clear mobile controls */
+.river3d{position:absolute;inset:0;z-index:2;overflow:hidden;background:#c5dce9;pointer-events:none;touch-action:none;cursor:grab}
+.river3d canvas{display:block;width:100%;height:100%}
+.river-panel{position:absolute;right:18px;bottom:75px;z-index:13;background:rgba(23,51,59,.88);backdrop-filter:blur(12px);border:1px solid #8bd0d8;border-radius:18px;padding:16px;max-width:min(380px,calc(100% - 32px));color:#fff4df;box-shadow:0 12px 40px #102e3c99}
+.river-panel strong{font-size:14px;letter-spacing:.7px}.river-panel p{font-size:12px;line-height:1.5;color:#ebf7f3}.river-stats{font-size:12px;margin:10px 0 13px}
+.river-actions{display:flex;gap:8px;flex-wrap:wrap}
+.river-actions button{border:0;border-radius:10px;padding:12px 15px;background:#b9e9da;color:#143a37;font-weight:800;font-size:12px;flex:1}
+.river-actions button:last-child{background:#f2dfb2;color:#4d3320}.river-actions button:disabled{opacity:.55}
+.river-panel small{display:block;margin-top:12px;font-size:10px;color:#c4e1e4}
+@media(max-width:700px){.river-panel{left:14px;right:14px;bottom:58px;max-width:none;padding:13px}.river-panel p{margin:8px 0}.river-actions button{font-size:11px;padding:11px 8px}.scene-caption:has(~.river-panel:not(.hidden)) p{display:none}}

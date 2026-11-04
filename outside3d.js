@@ -306,6 +306,23 @@ function loadKarmaTree(){
   });
 }
 
+function buildRiverPortal(){
+  const p=fromGame(600,550);
+  const g=new THREE.Group();g.position.set(p.x,0,p.z);scene.add(g);
+  const wood=col('#675043'),gold=col('#d0ad75'),water=col('#61a8b9',.3,.18,'#246a93',.32);
+  for(const x of [-1.25,1.25]){
+    box(.27,3.3,.35,wood,x,1.65,0,g);
+    sphere(.18,gold,x,3.25,0,g);
+  }
+  box(3.3,.3,.44,wood,0,3.32,0,g);
+  const inner=new THREE.Mesh(new THREE.TorusGeometry(1.04,.15,14,50),water);
+  inner.position.set(0,1.69,0);g.add(inner);
+  const disc=new THREE.Mesh(new THREE.CircleGeometry(.9,48),new THREE.MeshBasicMaterial({color:'#80c5d0',transparent:true,opacity:.34,side:THREE.DoubleSide}));
+  disc.position.y=1.69;g.add(disc);
+  const sign=textPlate3D('THUNG LŨNG TRÔI SÔNG',{bg:'#275764',fg:'#fff0bf',size:37,width:4.35,height:.74,depth:.18,edge:'#49606a'});
+  sign.position.set(0,4.17,0);g.add(sign);
+  ringMarker(p,'#8ce8f8',1.05);
+}
 function buildScene(){
   scene = new THREE.Scene();
   scene.background = new THREE.Color('#cfe0ea');
@@ -313,7 +330,7 @@ function buildScene(){
   camera = new THREE.PerspectiveCamera(64,1,.08,120);
   scene.add(new THREE.HemisphereLight('#fff6de','#61745e',2.6));
   const sun = new THREE.DirectionalLight('#fff0c7',3.2); sun.position.set(-12,18,10); scene.add(sun);
-  buildGround(); buildBoundary(); loadRecoveryHouse(); loadVentDeskModel(); loadSmashZoneModel(); buildDeadlineArena(); buildPondAndRelax(); buildDecor(); loadKarmaTree();
+  buildGround(); buildBoundary(); loadRecoveryHouse(); loadVentDeskModel(); loadSmashZoneModel(); buildDeadlineArena(); buildPondAndRelax(); buildDecor(); loadKarmaTree(); buildRiverPortal();
   avatar = makePerson('#d7a85f'); scene.add(avatar); assignLabel(avatar,'Bạn');
 }
 

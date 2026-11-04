@@ -6,14 +6,14 @@
   <meta name="theme-color" content="#241b29">
   <meta name="description" content="Không gian 3D nhiều người để xả bực, treo lời lên Cây Khẩu Nghiệp và hồi phục tinh thần.">
   <title>Xả Stress Online 3D — Cây Khẩu Nghiệp & Nhà Hồi Phục</title>
-  <link rel="stylesheet" href="style.css?v=6.5.1">
+  <link rel="stylesheet" href="style.css?v=6.7.0">
 </head>
 <body>
   <div class="game-shell">
-    <div id="outside3d" class="outside3d hidden"></div><div id="inside3d" class="inside3d hidden"></div><div id="inside3dHint" class="inside3d-hint hidden"></div><canvas id="game" aria-label="Bản đồ xả stress 2D dự phòng có nhân vật di chuyển"></canvas>
+    <div id="outside3d" class="outside3d hidden"></div><div id="river3d" class="river3d hidden"></div><div id="inside3d" class="inside3d hidden"></div><div id="inside3dHint" class="inside3d-hint hidden"></div><canvas id="game" aria-label="Bản đồ xả stress 2D dự phòng có nhân vật di chuyển"></canvas>
     <div class="vignette" aria-hidden="true"></div>
     <header class="topbar">
-      <div class="brand"><span class="brand-mark">✿</span><div><b>XẢ STRESS ONLINE <span style="font-size:10px;background:#e6bb67;color:#382618;border-radius:4px;padding:2px 5px;letter-spacing:0">v6.6</span></b><small>Khu xả bực 3D • Cây Khẩu Nghiệp • Nhà Hồi Phục</small></div></div>
+      <div class="brand"><span class="brand-mark">✿</span><div><b>XẢ STRESS ONLINE <span style="font-size:10px;background:#e6bb67;color:#382618;border-radius:4px;padding:2px 5px;letter-spacing:0">v6.7</span></b><small>Khu xả bực 3D • Cây Khẩu Nghiệp • Nhà Hồi Phục</small></div></div>
       <div class="top-actions">
         <span class="pill online-pill" id="onlineBadge">● <b id="onlineCount">1</b> đang xả stress</span><button class="pill tree-pill" id="treeOpenBtn" type="button">🌳 <b id="treeCount">0</b> lời treo</button><span class="pill" id="counterBadge">💨 <b id="fishCount">0</b> lượt xả</span><span class="pill" id="virtueBadge">🌿 <b id="virtueCount">0</b> bình tĩnh</span>
         <button id="fullscreenBtn" class="icon-btn" title="Toàn màn hình" aria-label="Bật/tắt toàn màn hình">⛶</button>
@@ -23,6 +23,13 @@
     </header>
     <div class="scene-caption"><span class="chapter" id="chapter">01 / KHU XẢ STRESS</span><h1 id="sceneTitle">Xả bực, thư giãn,<br>và treo khẩu nghiệp.</h1><p id="sceneSubtitle">Các khu đều là 3D: Cây Khẩu Nghiệp, Đấu Trường Deadline, khu bao cát, bàn xả bực và Nhà Hồi Phục.</p></div>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <div id="riverPanel" class="river-panel hidden" aria-label="Điều khiển trôi sông">
+      <strong>🌊 THUNG LŨNG TRÔI SÔNG</strong>
+      <p id="riverStatus">Đang chuẩn bị bản đồ 3D...</p>
+      <div class="river-stats">🌀 Vòng đã trôi: <b id="riverLaps">0</b> · Tuyến sông: <b id="riverProgress">0%</b></div>
+      <div class="river-actions"><button id="riverFloatBtn" type="button" disabled>🌊 Bắt đầu trôi</button><button id="riverExitBtn" type="button">↶ Quay về sân chính</button></div>
+      <small>Vuốt để xoay camera · Lăn chuột để thu/phóng · Sông tự nối vòng</small>
+    </div>
     <div id="arenaPanel" class="arena-panel hidden" aria-live="polite"><b>💥 ĐẤU TRƯỜNG DEADLINE</b><div>⏱ <span id="arenaTime">25</span>s · ⭐ <span id="arenaScore">0</span> điểm · 🔥 Combo <span id="arenaCombo">0</span></div><small>Kỷ lục: <span id="arenaBest">0</span> · Nhấn E hoặc TƯƠNG TÁC liên tục</small><button type="button" id="arenaStopBtn">Dừng vòng chơi</button></div>
     <div class="bottom-hud">
       <div class="control-tip" id="controlTip"><span class="key-group"><kbd>W</kbd><span><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span></span><span>hoặc phím mũi tên để đi lại</span><i></i><kbd>E</kbd><span>tương tác</span></div>
@@ -45,8 +52,9 @@
   </div>
   <script type="importmap">{"imports":{"three":"/vendor/three/three.module.js"}}</script>
   <script src="/socket.io/socket.io.js"></script>
-  <script type="module" src="outside3d.js?v=6.5.1"></script>
-  <script type="module" src="inside3d.js?v=6.5.1"></script>
-  <script src="game.js?v=6.5.1" defer></script>
+  <script type="module" src="outside3d.js?v=6.7.0"></script>
+  <script type="module" src="inside3d.js?v=6.7.0"></script>
+  <script type="module" src="river3d.js?v=6.7.0"></script>
+  <script src="game.js?v=6.7.0" defer></script>
 </body>
 </html>
