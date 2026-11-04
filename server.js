@@ -91,7 +91,7 @@ io.on('connection', socket => {
     if(name.length<2){socket.emit('serverError','Tên phải có 2–18 ký tự');return;}
     if(!players.has(socket.id)&&players.size>=MAX_PLAYERS){socket.emit('serverError','Sân chùa đang đông, vui lòng thử lại sau');return;}
     if(players.has(socket.id))players.delete(socket.id);
-    const p={id:socket.id,name,x:610,y:610,dir:0,scene:'temple',moving:false,color:colors[Math.floor(Math.random()*colors.length)]};
+    const p={id:socket.id,name,x:610,y:610,dir:0,scene:'temple',moving:false,meditating:false,color:colors[Math.floor(Math.random()*colors.length)]};
     players.set(socket.id,p);
     socket.emit('players',{players:[...players.values()],count:players.size});
     socket.broadcast.emit('playerJoined',p);
@@ -102,8 +102,8 @@ io.on('connection', socket => {
     const now=Date.now();if(now-lastMove<45)return;lastMove=now;
     if(!Number.isFinite(data.x)||!Number.isFinite(data.y))return;
     p.x=clamp(Math.round(data.x),37,1163);p.y=clamp(Math.round(data.y),390,721);
-    p.dir=data.dir===-1?-1:1;p.scene=['temple','inside','release'].includes(data.scene)?data.scene:'temple';p.moving=data.moving===true;
-    socket.broadcast.volatile.emit('playerMoved',{id:p.id,x:p.x,y:p.y,dir:p.dir,scene:p.scene,moving:p.moving});
+    p.dir=data.dir===-1?-1:1;p.scene=['temple','inside','release'].includes(data.scene)?data.scene:'temple';p.moving=data.moving===true;p.meditating=data.meditating===true;
+    socket.broadcast.volatile.emit('playerMoved',{id:p.id,x:p.x,y:p.y,dir:p.dir,scene:p.scene,moving:p.moving,meditating:p.meditating});
   });
   socket.on('chat', data=>{
     const p=players.get(socket.id);if(!p||p.scene==='release')return;

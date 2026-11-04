@@ -5,9 +5,11 @@
   if (!ctx) { alert('Trình duyệt không hỗ trợ Canvas 2D.'); return; }
   const $ = id => document.getElementById(id);
   const W = 1200, H = 760;
-  const state = { scene:'temple', keys:new Set(), player:{x:610,y:610,dir:0,steps:0}, time:0, near:false, locked:false, fishStart:-1, fishReleased:false, ritual:0, nearTree:false, hasLetter:false, blessing:'', joyX:0, joyY:0, particles:[], sound:false, last:0, count:0 };
+  const state = { scene:'temple', keys:new Set(), player:{x:610,y:610,dir:0,steps:0}, time:0, near:false, locked:false, fishStart:-1, fishReleased:false, ritual:0, nearTree:false, hasLetter:false, blessing:'', joyX:0, joyY:0, particles:[], sound:false, last:0, count:0, virtue:0, meditating:false, meditateClock:0, nearMeditation:false, meditationSpot:null };
   try { state.count = Math.max(0, Number(localStorage.getItem('chuaonline_fish') || 0) || 0); } catch (_) {}
   $('fishCount').textContent = String(state.count);
+  try { state.virtue = Math.max(0, Number(localStorage.getItem('chuaonline_virtue') || 0) || 0); } catch (_) {}
+  $('virtueCount').textContent = String(state.virtue);
   // Real-time state; only character coordinates and public chat are synchronized.
   const peers = new Map();
   let socket = null, nickname = '', joined = false, lastSent = 0, lastChat = 0;
@@ -59,7 +61,7 @@
     socket.on('players', data => { peers.clear(); for(const p of data.players || []) if(p.id !== socket.id) peers.set(p.id,{...p, bubble:null}); $('onlineCount').textContent=String(data.count || 1); });
     socket.on('playerJoined', p => { if(p.id!==socket.id) peers.set(p.id,{...p,bubble:null}); $('onlineCount').textContent=String(peers.size+1); });
     socket.on('playerLeft', id => { peers.delete(id); $('onlineCount').textContent=String(peers.size+1); });
-    socket.on('playerMoved', p => { const peer=peers.get(p.id); if(peer) { peer.x=p.x;peer.y=p.y;peer.dir=p.dir;peer.scene=p.scene;peer.moving=p.moving; } });
+    socket.on('playerMoved', p => { const peer=peers.get(p.id); if(peer) { peer.x=p.x;peer.y=p.y;peer.dir=p.dir;peer.scene=p.scene;peer.moving=p.moving;peer.meditating=p.meditating===true; } });
     socket.on('chat', data => { const item=bubble(data.text); if(data.id===socket.id) myBubble=item; else if(peers.has(data.id)) peers.get(data.id).bubble=item; });
     socket.on('notesRefresh',()=>loadNotes(1));
     socket.on('noteAdded', note => { recentNotes.unshift(note);recentNotes=recentNotes.slice(0,12);noteTotal++;updateTreeCount(); if(!document.getElementById('treeModal').classList.contains('hidden'))loadNotes(1); });
@@ -69,7 +71,7 @@
   function sendPosition(force=false) {
     if(!socket?.connected || !joined)return;
     const now=performance.now(); if(!force && now-lastSent<60)return;lastSent=now;
-    socket.emit('move', {x:Math.round(state.player.x),y:Math.round(state.player.y),dir:state.player.dir,scene:state.scene,moving:state.keys.size>0||Math.hypot(state.joyX,state.joyY)>.13});
+    socket.emit('move', {x:Math.round(state.player.x),y:Math.round(state.player.y),dir:state.player.dir,scene:state.scene,moving:(!state.meditating)&&(state.keys.size>0||Math.hypot(state.joyX,state.joyY)>.13),meditating:state.meditating===true});
   }
   function wrapBubble(value,x,y){
     const lines=[], words=value.split(/\s+/);let line='';
@@ -83,11 +85,12 @@
     const list=[...peers.values()].filter(p=>p.scene===state.scene).sort((a,b)=>a.y-b.y);
     for(const p of list){
       const x=p.x,y=p.y;ctx.save();ctx.translate(x,y);
-      ellipse(0,10,18,6,'#1c2a2777');const bounce=p.moving?Math.sin(state.time*.013+p.x)*2:0;
-      ctx.translate(0,bounce);if(p.dir===-1)ctx.scale(-1,1);
-      rounded(-12,-12,9,23,3);ctx.fillStyle='#394f61';ctx.fill();rounded(4,-12,9,23,3);ctx.fill();
-      rounded(-17,-34,34,29,8);ctx.fillStyle=p.color||'#78a58f';ctx.fill();
-      ellipse(0,-45,21,22,'#f0c296');ellipse(0,-59,21,11,'#343334');ellipse(-8,-45,2.5,3,'#302a26');ellipse(8,-45,2.5,3,'#302a26');ctx.restore();
+      ellipse(0,10,18,6,'#1c2a2777');const bounce=(p.moving&&!p.meditating)?Math.sin(state.time*.013+p.x)*2:0;
+      ctx.translate(0,p.meditating?6:bounce);if(p.dir===-1)ctx.scale(-1,1);
+      rounded(-17,-34,34,29,12);ctx.fillStyle=p.color||'#78a58f';ctx.fill();fill(-4,-33,8,18,'#efc27b');
+      ellipse(0,-45,21,22,'#f0c296');ellipse(0,-59,21,11,'#343334');ellipse(-8,-45,2.5,3,'#302a26');ellipse(8,-45,2.5,3,'#302a26');ctx.strokeStyle='#6d4130';ctx.lineWidth=1.4;ctx.beginPath();ctx.arc(0,-40,4,0,Math.PI);ctx.stroke();
+      if(p.meditating){ellipse(0,-8,26,7,'#84654b');} else {ellipse(-8,8,8,5,'#272e33');ellipse(8,8,8,5,'#272e33');}
+      ctx.restore();
       rounded(x-51,y+16,102,22,9);ctx.fillStyle='#20322cdd';ctx.fill();text(p.name||'Khách',x,y+27,12,'#fff1c9','center','sans-serif','700');
       if(p.bubble&&p.bubble.until>performance.now())wrapBubble(p.bubble.text,x,y-78);
     }
@@ -126,6 +129,13 @@
     'Hôm nay gửi muộn phiền vào gió, ngày mai đón bình an vào nhà.'
   ];
   const rand = (a,b)=> a+Math.random()*(b-a);
+const MEDITATION_SPOTS = [{x:450,y:620},{x:600,y:620},{x:750,y:620},{x:525,y:560},{x:675,y:560}];
+  function nearestMeditationSpot(){
+    if(state.scene!=='inside') return null;
+    for(const spot of MEDITATION_SPOTS){ if(Math.hypot(state.player.x-spot.x,state.player.y-spot.y)<70) return spot; }
+    return null;
+  }
+  function setVirtue(value){ state.virtue=Math.max(0,Math.floor(value)); $('virtueCount').textContent=String(state.virtue); try{localStorage.setItem('chuaonline_virtue',String(state.virtue))}catch(_){} }
   const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
   let audioCtx;
   function tone(freq=660,duration=.17,vol=.05){if(!state.sound)return;try{audioCtx ||= new (window.AudioContext||window.webkitAudioContext)();const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type='sine';o.frequency.setValueAtTime(freq,audioCtx.currentTime);o.frequency.exponentialRampToValueAtTime(freq*.67,audioCtx.currentTime+duration);g.gain.setValueAtTime(vol,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(.001,audioCtx.currentTime+duration);o.connect(g).connect(audioCtx.destination);o.start();o.stop(audioCtx.currentTime+duration)}catch(_){}}
@@ -236,14 +246,17 @@
       }
     }
   }
-  function drawPlayer(){const p=state.player,moving=(state.keys.size>0||Math.hypot(state.joyX,state.joyY)>.13)&&!state.locked,step=moving?Math.sin(p.steps*10)*4:Math.sin(state.time*.0015)*1;ctx.save();ctx.translate(p.x,p.y);ellipse(0,11,19,7,'#182b2e77');ctx.translate(0,step*.4);const flip=p.dir===-1; if(flip)ctx.scale(-1,1);
-    // backpack, arms and shoes
-    rounded(-15,-32,30,35,10);ctx.fillStyle='#6d4c36';ctx.fill();rounded(-20,-30,12,23,6);ctx.fillStyle='#efc086';ctx.fill();rounded(10,-30,12,23,6);ctx.fillStyle='#efc086';ctx.fill();
-    fill(-12,-8,10,17,'#543f38');fill(3,-8,10,17,'#543f38');ellipse(-7,8,8,5,'#272e33');ellipse(8,8,8,5,'#272e33');
-    rounded(-17,-33,34,29,8);ctx.fillStyle='#d48650';ctx.fill();fill(-3,-33,6,26,'#e5ac6b');
-    ellipse(0,-45,22,22,'#f4c69d');ellipse(0,-60,22,12,'#343334');ellipse(-16,-51,8,12,'#343334');ellipse(16,-52,8,12,'#343334');
-    ellipse(-8,-45,2.4,3,'#302a26');ellipse(8,-45,2.4,3,'#302a26');ellipse(-13,-39,4,2,'#e99983');ellipse(13,-39,4,2,'#e99983');ctx.strokeStyle='#6d4130';ctx.lineWidth=1.6;ctx.beginPath();ctx.arc(0,-41,4,0,Math.PI);ctx.stroke();ctx.restore();
-    if(state.near&&!state.locked){rounded(p.x-63,p.y-104,126,28,9);ctx.fillStyle='#fbefd5';ctx.fill();text(state.scene==='inside'?'E  Dâng sớ':state.nearTree?'E  Cây khẩu nghiệp':Math.hypot(p.x-926,p.y-493)<117?'E  Viết sớ':'E  Vào điện',p.x,p.y-90,12,'#5f452d','center','sans-serif')}
+  function drawPlayer(){const p=state.player,moving=(state.keys.size>0||Math.hypot(state.joyX,state.joyY)>.13)&&!state.locked&&!state.meditating,step=moving?Math.sin(p.steps*10)*3:Math.sin(state.time*.0015)*1;ctx.save();ctx.translate(p.x,p.y);ellipse(0,11,19,7,'#182b2e77');if(state.meditating){ctx.translate(0,8);}else{ctx.translate(0,step*.4);}
+    const flip=p.dir===-1; if(flip)ctx.scale(-1,1);
+    // cute simple body: no arms, no detailed limbs
+    rounded(-19,-35,38,34,15);ctx.fillStyle='#d69559';ctx.fill();
+    fill(-5,-34,10,20,'#efc27b');
+    ellipse(0,-48,21,20,'#f4c69d');ellipse(0,-61,22,11,'#343334');ellipse(-10,-49,2.2,2.8,'#302a26');ellipse(10,-49,2.2,2.8,'#302a26');ctx.strokeStyle='#6d4130';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(0,-43,4,0,Math.PI);ctx.stroke();ellipse(-10,-43,3.5,2,'#e99983');ellipse(10,-43,3.5,2,'#e99983');
+    if(state.meditating){ellipse(0,-8,28,7,'#84654b');} else {ellipse(-8,8,8,5,'#272e33');ellipse(8,8,8,5,'#272e33');}
+    ctx.restore();
+    if(state.near&&!state.locked){rounded(p.x-84,p.y-104,168,28,9);ctx.fillStyle='#fbefd5';ctx.fill();
+      const hint=state.meditating?'E  Đứng dậy khỏi đệm thiền':state.nearMeditation?'E  Ngồi thiền (+1 tích đức/giây)':state.scene==='inside'?'E  Dâng sớ':state.nearTree?'E  Cây khẩu nghiệp':Math.hypot(p.x-926,p.y-493)<117?'E  Viết sớ':'E  Vào điện';
+      text(hint,p.x,p.y-90,12,'#5f452d','center','sans-serif')}
   }
   function drawCarp(x,y,size=1,dir=1,alpha=1){ctx.save();ctx.globalAlpha=alpha;ctx.translate(x,y);ctx.scale(size*dir,size);ctx.rotate(Math.sin(state.time*.012)*.07);ctx.fillStyle='#e3a43c';poly([[-21,0],[-43,-15],[-37,0],[-43,15]],'#d78a32');ellipse(0,0,25,13,'#f4b850');ellipse(6,-5,15,5,'#ffdf8c7c');poly([[-8,-7],[-12,-19],[6,-12]],'#ffdf8c');ellipse(17,-3,2.5,2.5,'#3f3530');ellipse(20,2,3,2,'#f9d88e');ctx.restore()}
   function drawRelease(){const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#273f53');g.addColorStop(.4,'#799b9b');g.addColorStop(.62,'#ceb78f');g.addColorStop(.63,'#37788b');g.addColorStop(1,'#1b5365');fill(0,0,W,H,g);ellipse(952,164,90,90,'#f8dc9f33');ellipse(952,164,48,48,'#ffe3ac');
@@ -258,12 +271,16 @@
     for(let i=0;i<16;i++){const x=i*15-14;ctx.strokeStyle=i%2?'#4b6b49':'#76925d';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(x,760);ctx.quadraticCurveTo(x+15+Math.sin(state.time*.001+i)*10,708,x+8,680-seedRand(i)*50);ctx.stroke()}
   }
   function render(ms){const dt=Math.min((ms-state.last||16)/1000,.045);state.last=ms;state.time=ms;
-    if((state.scene==='temple'||state.scene==='inside')&&!state.locked&&joined){let dx=state.joyX,dy=state.joyY;for(const k of state.keys){if(k==='arrowup'||k==='w')dy--;if(k==='arrowdown'||k==='s')dy++;if(k==='arrowleft'||k==='a')dx--;if(k==='arrowright'||k==='d')dx++}if(dx||dy){const n=Math.max(1,Math.hypot(dx,dy)),oldX=state.player.x,oldY=state.player.y;dx/=n;dy/=n;state.player.x=clamp(oldX+dx*210*dt,37,1163);state.player.y=clamp(oldY+dy*210*dt,state.scene==='temple'?390:440,721);state.player.steps+=dt*2.8;if(Math.abs(dx)>.1)state.player.dir=dx>0?1:-1}
+    if((state.scene==='temple'||state.scene==='inside')&&!state.locked&&joined){let dx=state.joyX,dy=state.joyY;for(const k of state.keys){if(k==='arrowup'||k==='w')dy--;if(k==='arrowdown'||k==='s')dy++;if(k==='arrowleft'||k==='a')dx--;if(k==='arrowright'||k==='d')dx++}
+    if(state.meditating && (dx||dy)){state.meditating=false;state.meditateClock=0;toast('Bạn đã đứng dậy khỏi đệm thiền.');updateAction();sendPosition(true);}
+    if(!state.meditating && (dx||dy)){const n=Math.max(1,Math.hypot(dx,dy)),oldX=state.player.x,oldY=state.player.y;dx/=n;dy/=n;state.player.x=clamp(oldX+dx*210*dt,37,1163);state.player.y=clamp(oldY+dy*210*dt,state.scene==='temple'?390:440,721);state.player.steps+=dt*2.8;if(Math.abs(dx)>.1)state.player.dir=dx>0?1:-1}
+    if(state.scene==='inside' && state.meditating){state.meditateClock+=dt; if(state.meditateClock>=1){const gain=Math.floor(state.meditateClock); state.meditateClock-=gain; setVirtue(state.virtue+gain);}}
     let near=false;
     state.nearTree=state.scene==='temple'&&Math.hypot(state.player.x-190,state.player.y-442)<145;
-    if(state.scene==='temple')near=state.nearTree||Math.hypot(state.player.x-926,state.player.y-493)<117||state.ritual===1&&Math.hypot(state.player.x-600,state.player.y-401)<90;
-    else near=state.ritual===1&&Math.hypot(state.player.x-600,state.player.y-460)<105;
-    if(near!==state.near||state.lastNearTree!==state.nearTree){state.near=near;state.lastNearTree=state.nearTree;updateAction()}}
+    state.meditationSpot=nearestMeditationSpot(); state.nearMeditation=!!state.meditationSpot || state.meditating;
+    if(state.scene==='temple') near=state.nearTree||Math.hypot(state.player.x-926,state.player.y-493)<117||state.ritual===1&&Math.hypot(state.player.x-600,state.player.y-401)<90;
+    else near=state.meditating||!!state.meditationSpot||(state.ritual===1&&Math.hypot(state.player.x-600,state.player.y-460)<105);
+    if(near!==state.near||state.lastNearTree!==state.nearTree||state.lastNearMeditation!==state.nearMeditation){state.near=near;state.lastNearTree=state.nearTree;state.lastNearMeditation=state.nearMeditation;updateAction()}}
     // Responsive camera: preserve world coordinates (1200×760) for Socket.IO.
     // Keep the player in the usable center area above the mobile joystick/chat.
     const bounds=canvas.getBoundingClientRect();
@@ -282,14 +299,16 @@
     ctx.fillRect(0,0,vw,vh);
     state.view={scale,offX,offY};
     ctx.setTransform(dpr*scale,0,0,dpr*scale,dpr*offX,dpr*offY);
-    if(state.scene==='temple'){drawTemple();drawPeers();drawPlayer();sendPosition()}else if(state.scene==='inside'){drawInside();drawPeers();drawPlayer();sendPosition();window.temple3D?.sync({player:state.player,others:[...peers.entries()].map(([id,p])=>({...p,id,chat:p.bubble?.until>performance.now()?p.bubble.text:''})),name:nickname,bubble:myBubble?.until>performance.now()?myBubble.text:''})}else drawRelease();requestAnimationFrame(render)}
-  function updateAction(){const enabled=state.scene!=='release'&&state.near&&!state.locked;$('actionBtn').disabled=!enabled;const atDesk=state.scene==='temple'&&Math.hypot(state.player.x-926,state.player.y-493)<117;const atDoor=state.scene==='temple'&&Math.hypot(state.player.x-600,state.player.y-401)<90;$('actionLabel').textContent=state.nearTree?'🌳 Cây Khẩu Nghiệp':atDesk?'📜 Viết sớ cầu an':atDoor&&state.ritual===1?'Vào Điện Quan Âm':state.scene==='inside'?'📜 Dâng sớ 3D':state.ritual===1?'Đến cửa điện dâng sớ':'Chọn viết sớ hoặc Cây Khẩu Nghiệp'}
+    if(state.scene==='temple'){drawTemple();drawPeers();drawPlayer();sendPosition()}else if(state.scene==='inside'){drawInside();drawPeers();drawPlayer();sendPosition();window.temple3D?.sync({player:{...state.player,meditating:state.meditating},others:[...peers.entries()].map(([id,p])=>({...p,id,chat:p.bubble?.until>performance.now()?p.bubble.text:''})),name:nickname,bubble:myBubble?.until>performance.now()?myBubble.text:''})}else drawRelease();requestAnimationFrame(render)}
+  function updateAction(){const enabled=state.scene!=='release'&&state.near&&!state.locked;$('actionBtn').disabled=!enabled;const atDesk=state.scene==='temple'&&Math.hypot(state.player.x-926,state.player.y-493)<117;const atDoor=state.scene==='temple'&&Math.hypot(state.player.x-600,state.player.y-401)<90;$('actionLabel').textContent=state.meditating?'🪷 Đứng dậy khỏi đệm thiền':state.nearMeditation?'🧘 Ngồi thiền (+1 tích đức/giây)':state.nearTree?'🌳 Cây Khẩu Nghiệp':atDesk?'📜 Viết sớ cầu an':atDoor&&state.ritual===1?'Vào Điện Quan Âm':state.scene==='inside'?'📜 Dâng sớ 3D':state.ritual===1?'Đến cửa điện dâng sớ':'Chọn viết sớ hoặc Cây Khẩu Nghiệp'}
   function modal(id,show){$(id).classList.toggle('hidden',!show);state.locked=show;state.keys.clear();state.joyX=0;state.joyY=0;resetJoystick();updateAction()}
   let toastTimer;function toast(s){$('toast').textContent=s;$('toast').classList.add('visible');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').classList.remove('visible'),2800)}
   function interact(){if(!state.near||state.locked||!joined)return;
     if(state.scene==='temple'&&state.nearTree){showTree();return;}
     if(state.scene==='temple'&&Math.hypot(state.player.x-926,state.player.y-493)<117){if(state.ritual!==0){toast('Bạn đã có sớ cầu an, hãy đến cửa điện chính.');return;}modal('letterModal',true);$('prayerInput').focus();tone(660);return;}
-    if(state.scene==='temple'&&state.ritual===1&&Math.hypot(state.player.x-600,state.player.y-401)<90){state.scene='inside';state.player.x=600;state.player.y=713;window.temple3D?.enter();state.near=false;sendPosition(true);$('chapter').textContent='02 / BÊN TRONG ĐIỆN';$('sceneTitle').innerHTML='Dâng sớ thành tâm,<br>thắp hương bình an.';$('sceneSubtitle').textContent='Đến hương án ở giữa điện, nhấn E để dâng sớ.';updateAction();tone(660);return;}
+    if(state.scene==='temple'&&state.ritual===1&&Math.hypot(state.player.x-600,state.player.y-401)<90){state.scene='inside';state.player.x=600;state.player.y=713;window.temple3D?.enter();state.near=false;sendPosition(true);$('chapter').textContent='02 / BÊN TRONG ĐIỆN';$('sceneTitle').innerHTML='Dâng sớ thành tâm,<br>thắp hương bình an.';$('sceneSubtitle').textContent='Đến hương án để dâng sớ, hoặc ngồi lên đệm thiền để tích đức.';updateAction();tone(660);return;}
+    if(state.scene==='inside'&&state.meditating){state.meditating=false;state.meditateClock=0;toast('Bạn đã đứng dậy khỏi đệm thiền.');updateAction();sendPosition(true);tone(500,.2);return;}
+    if(state.scene==='inside'&&state.meditationSpot){state.meditating=true;state.meditateClock=0;state.player.x=state.meditationSpot.x;state.player.y=state.meditationSpot.y;toast('🪷 Bạn đang ngồi thiền... mỗi giây cộng 1 tích đức.');updateAction();sendPosition(true);tone(560,.25);return;}
     if(state.scene==='inside'&&state.ritual===1&&Math.hypot(state.player.x-600,state.player.y-460)<105){modal('offeringModal',true);tone(720)}
   }
   $('actionBtn').addEventListener('click',interact);
@@ -317,9 +336,9 @@
   });
   $('offerBtn').addEventListener('click',()=>{if(state.scene!=='inside'||state.ritual!==1)return;state.ritual=2;modal('offeringModal',false);modal('incenseModal',true);tone(640,.3)});
   $('incenseBtn').addEventListener('click',()=>{if(state.scene!=='inside'||state.ritual!==2)return;state.ritual=3;modal('incenseModal',false);$('blessingText').textContent='“'+state.blessing+'”';modal('blessingModal',true);tone(880,.3);setTimeout(()=>tone(1046,.4),240)});
-  $('releaseBtn').addEventListener('click',()=>{if(state.ritual!==3)return;modal('blessingModal',false);state.scene='release';window.temple3D?.exit();state.ritual=4;sendPosition(true);state.fishStart=-1;state.fishReleased=false;$('chapter').textContent='02 / HỒ SEN';$('sceneTitle').innerHTML='Thả muộn phiền,<br>giữ bình an.';$('sceneSubtitle').textContent='Một chú cá vàng đang chờ được về với làn nước.';$('releasePanel').classList.remove('hidden');$('dropFishBtn').classList.remove('hidden');$('againBtn').classList.add('hidden');$('releaseStatus').textContent='Một chú cá vàng đang đợi bạn...';$('releaseNote').textContent='Nhấn nút để xem chú cá bơi tự do dưới làn nước.';$('actionBtn').classList.add('hidden');$('controlTip').classList.add('hidden');$('mobileControls').classList.add('hidden');tone(523,.25)});
+  $('releaseBtn').addEventListener('click',()=>{if(state.ritual!==3)return;modal('blessingModal',false);state.scene='release';window.temple3D?.exit();state.ritual=4;state.meditating=false;state.meditateClock=0;sendPosition(true);state.fishStart=-1;state.fishReleased=false;$('chapter').textContent='02 / HỒ SEN';$('sceneTitle').innerHTML='Thả muộn phiền,<br>giữ bình an.';$('sceneSubtitle').textContent='Một chú cá vàng đang chờ được về với làn nước.';$('releasePanel').classList.remove('hidden');$('dropFishBtn').classList.remove('hidden');$('againBtn').classList.add('hidden');$('releaseStatus').textContent='Một chú cá vàng đang đợi bạn...';$('releaseNote').textContent='Nhấn nút để xem chú cá bơi tự do dưới làn nước.';$('actionBtn').classList.add('hidden');$('controlTip').classList.add('hidden');$('mobileControls').classList.add('hidden');tone(523,.25)});
   $('dropFishBtn').addEventListener('click',()=>{if(state.fishReleased)return;state.fishReleased=true;state.fishStart=performance.now();state.count++;$('fishCount').textContent=String(state.count);try{localStorage.setItem('chuaonline_fish',String(state.count))}catch(_){}$('dropFishBtn').classList.add('hidden');$('releaseStatus').textContent='Cá vàng đã trở về hồ ✨';$('releaseNote').textContent='Mong điều vui đến gần, điều buồn trôi xa. Cá đang bơi trong hồ!';$('againBtn').classList.remove('hidden');tone(784,.35);setTimeout(()=>tone(1046,.4),240)});
-  $('againBtn').addEventListener('click',()=>{state.scene='temple';window.temple3D?.exit();sendPosition(true);state.player={x:610,y:610,dir:0,steps:0};state.keys.clear();state.joyX=0;state.joyY=0;resetJoystick();state.near=false;state.locked=false;state.ritual=0;state.hasLetter=false;state.blessing='';$('chapter').textContent='01 / SÂN CHÙA';$('sceneTitle').innerHTML='Viết sớ cầu an,<br>hoặc treo khẩu nghiệp.';$('sceneSubtitle').textContent='Hai hoạt động riêng: viết sớ cầu an hoặc treo lời khẩu nghiệp.';$('releasePanel').classList.add('hidden');$('actionBtn').classList.remove('hidden');$('controlTip').classList.remove('hidden');$('mobileControls').classList.remove('hidden');$('prayerInput').value='';$('prayerCharCount').textContent='0/400';updateAction()});
+  $('againBtn').addEventListener('click',()=>{state.scene='temple';window.temple3D?.exit();sendPosition(true);state.player={x:610,y:610,dir:0,steps:0};state.keys.clear();state.joyX=0;state.joyY=0;resetJoystick();state.near=false;state.locked=false;state.ritual=0;state.hasLetter=false;state.blessing='';state.meditating=false;state.meditateClock=0;state.nearMeditation=false;state.meditationSpot=null;$('chapter').textContent='01 / SÂN CHÙA';$('sceneTitle').innerHTML='Viết sớ cầu an,<br>hoặc treo khẩu nghiệp.';$('sceneSubtitle').textContent='Hai hoạt động riêng: viết sớ cầu an hoặc treo lời khẩu nghiệp.';$('releasePanel').classList.add('hidden');$('actionBtn').classList.remove('hidden');$('controlTip').classList.remove('hidden');$('mobileControls').classList.remove('hidden');$('prayerInput').value='';$('prayerCharCount').textContent='0/400';updateAction()});
   const fullscreenBtn=$('fullscreenBtn');
   fullscreenBtn?.addEventListener('click', async()=>{
     try {
@@ -342,5 +361,5 @@
   joystick.addEventListener('pointermove',e=>{if(activePointer!==e.pointerId)return;e.preventDefault();setStick(e)});
   function endStick(e){if(activePointer!==e.pointerId)return;activePointer=null;state.joyX=0;state.joyY=0;resetJoystick()}
   joystick.addEventListener('pointerup',endStick);joystick.addEventListener('pointercancel',endStick);joystick.addEventListener('lostpointercapture',e=>{if(activePointer===e.pointerId)endStick(e)});
-  state.locked=true;requestAnimationFrame(render);setTimeout(()=>toast('Bên phải: viết sớ cầu an • Bên trái: Cây Khẩu Nghiệp ✨'),800);
+  state.locked=true;requestAnimationFrame(render);setTimeout(()=>toast('Bên phải: viết sớ cầu an • Bên trái: Cây Khẩu Nghiệp • Trong điện có đệm thiền 🪷'),800);
 })();
