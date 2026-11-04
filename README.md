@@ -1,33 +1,35 @@
-# CHÙA ONLINE 3.8 — CAMERA THÔNG MINH & ĐIỆN DÂN GIAN
+# CHÙA ONLINE 3.9 — ĐIỆN QUAN ÂM 3D, NHẠC THIỀN VÀ NỘI THẤT DÂN GIAN
 
-Đây là bản cập nhật dựa trên Chùa Online 3.7 (Node.js, Socket.IO, Three.js, PostgreSQL tùy chọn).
+Nâng cấp trực tiếp từ bản 3.8. Giữ nguyên sân chùa, Cây Khẩu Nghiệp, trò chuyện nhiều người qua Socket.IO, dâng sớ và phóng sinh. Nội điện vẫn sử dụng Three.js và hỗ trợ di chuyển theo hướng camera.
 
-## Những điểm mới
+## Những điểm thay đổi
 
-- Vào điện **không cần viết sớ**. Từ sân chùa, đến cửa điện chính và nhấn E hoặc nút tương tác. Có thể ra sân qua khu vực gần cửa điện trong nội điện. Viết sớ là hoạt động riêng để mở nghi thức dâng sớ/thắp hương/nhận cá.
-- **Di chuyển tương đối theo camera 3D**: khi xoay camera, joystick/WASD vẫn đi đúng hướng hình ảnh (trái/phải/tiến/lùi). Sân chùa 2D không đổi hướng điều khiển.
-- **Camera ít bị che**: bỏ trần kín, tường bên gần như xuyên thấu, làm mờ cột khi có tia nhìn từ camera đến nhân vật, và giới hạn vị trí camera trong không gian điện.
-- **12 đệm thiền** bố trí thành hàng, khu giữa không có vật trang trí lớn. Nhấn E để ngồi; mỗi giây +1 tích đức và popup bay lên trên nhân vật.
-- Trang trí dân gian: cột đỏ, bình gốm xanh trắng, đèn lồng, màn gỗ, cồng đồng, vách gỗ sơn son thếp vàng, ánh đèn vàng.
-- Giữ Cây Khẩu Nghiệp, chat bong bóng, Multiplayer, phóng sinh và ảnh nền Quan Âm.
+- **Nhạc thiền nhẹ**: tệp `assets/nhac-thien-dien-quan-am.mp3` là nhạc nền không lời tự tạo dành riêng cho game. Tự phát khi người chơi tương tác để bước vào điện; dừng khi ra khỏi điện/chuyển cảnh/ẩn tab, bật lại khi quay về nếu âm thanh được bật. Nút ♫ bật/tắt và lưu lựa chọn trên thiết bị. Trình duyệt có thể chặn tự phát trước tương tác đầu tiên.
+- **Đệm thiền**: 12 đệm bố trí theo 3 hàng, khoảng cách lớn hơn. Chỉ chọn **đệm gần nhất trong phạm vi 43 đơn vị tọa độ**, tránh việc tự nhảy sang đệm khác. Giữ hiệu ứng +1 tích đức mỗi giây khi thiền.
+- **Bàn thờ Quan Âm**: thêm bệ thờ nhiều tầng, sơn son thếp vàng, bình hoa sen, đèn dầu, hoa văn và khung bảng; giữ tượng 3D và hình nền điện gốc.
+- **Tường và cửa sổ**: các mảng hoa văn đỏ vàng và cửa sổ nan gỗ ở hai vách, dùng chất liệu bán trong suốt ở sát mép để giảm khả năng che góc camera.
 
-## Chạy thử
-
-Cài Node.js >=18, mở CMD tại thư mục chứa `package.json`:
+## Chạy thử trên Windows
 
 ```bash
 npm install
 npm start
 ```
 
-Mở `http://localhost:3000`. Không mở file HTML trực tiếp.
+Mở `http://localhost:3000`. Điện thoại cùng mạng LAN có thể vào `http://IP_MAY_TINH:3000` khi tường lửa cho phép.
 
-## Cập nhật GitHub / Render
+## Cập nhật Render
 
-Thay `inside3d.js`, `game.js`, `index.html`, `style.css`, `server.js`, `package.json`, `README.md` và giữ `assets/dien-quan-am.png`. Không upload `node_modules`. Render: Build `npm install`, Start `npm start`. `DATABASE_URL` để duy trì Cây Khẩu Nghiệp lâu dài vẫn như trước.
+Thay các file `game.js`, `inside3d.js`, `index.html`, `package.json`, `README.md` và **upload file MP3 mới trong thư mục `assets`**. Giữ ảnh `assets/dien-quan-am.png`. Không upload `node_modules`. Commit lên GitHub, để Render deploy commit mới.
 
-## Giới hạn
+`DATABASE_URL` trên Render vẫn được dùng cho việc lưu lời trên Cây Khẩu Nghiệp; điểm tích đức hiện lưu trên trình duyệt. Vào điện không yêu cầu viết sớ, nhưng dâng sớ vẫn yêu cầu viết sớ trước.
 
-- Đồ họa 3D được dựng bằng khối hình học Three.js; chưa phải nội điện scan 3D chân thực.
-- Chưa chạy kiểm thử bằng điện thoại thật hoặc nhiều người chơi trên Render. Lỗi mạng, hiệu năng máy yếu hay tỉ lệ màn hình có thể cần tinh chỉnh.
-- Tích đức hiện lưu trên trình duyệt (`localStorage`); chưa phải điểm tài khoản được xác thực bằng máy chủ.
+## Kiểm thử gợi ý
+
+1. Mở game trên điện thoại, chọn tên và vào điện; kiểm tra có nhạc nhẹ. Nhấn ♫ để bật/tắt.
+2. Ra sân và xác nhận nhạc dừng; quay vào điện và nhạc phát tiếp.
+3. Tới từng đệm, nhấn tương tác, xác nhận không nhảy sang đệm khác và nhận +1 tích đức/giây.
+4. Xoay camera đủ bốn phía, quan sát hoa văn và cửa sổ, kiểm tra nhân vật không bị che đáng kể.
+5. Mở game trên hai thiết bị và thử đồng bộ nhân vật, chat, cùng các tính năng cũ.
+
+**Lưu ý:** Đã kiểm tra cú pháp mã nguồn. Chưa xác nhận trực quan trên mọi loại điện thoại/trình duyệt.

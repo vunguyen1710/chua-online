@@ -129,15 +129,28 @@
     'Hôm nay gửi muộn phiền vào gió, ngày mai đón bình an vào nhà.'
   ];
   const rand = (a,b)=> a+Math.random()*(b-a);
-const MEDITATION_SPOTS = [{x:360,y:535},{x:450,y:535},{x:750,y:535},{x:840,y:535},{x:360,y:595},{x:450,y:595},{x:750,y:595},{x:840,y:595},{x:360,y:655},{x:450,y:655},{x:750,y:655},{x:840,y:655}];
+const MEDITATION_SPOTS = [{"x":315,"y":505},{"x":430,"y":505},{"x":770,"y":505},{"x":885,"y":505},{"x":315,"y":591},{"x":430,"y":591},{"x":770,"y":591},{"x":885,"y":591},{"x":315,"y":677},{"x":430,"y":677},{"x":770,"y":677},{"x":885,"y":677}];
   function nearestMeditationSpot(){
     if(state.scene!=='inside') return null;
-    for(const spot of MEDITATION_SPOTS){ if(Math.hypot(state.player.x-spot.x,state.player.y-spot.y)<70) return spot; }
-    return null;
+    // Never snap to the first overlapping pad: pick the closest, with a tight interaction radius.
+    const ranked=MEDITATION_SPOTS.map(spot=>({spot,d:Math.hypot(state.player.x-spot.x,state.player.y-spot.y)})).sort((a,b)=>a.d-b.d);
+    return ranked[0] && ranked[0].d<=43 ? ranked[0].spot : null;
   }
   function setVirtue(value){ state.virtue=Math.max(0,Math.floor(value)); $('virtueCount').textContent=String(state.virtue); try{localStorage.setItem('chuaonline_virtue',String(state.virtue))}catch(_){} }
   const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
   let audioCtx;
+  // Original royalty-free ambient music is bundled with this project. Playback starts on a user interaction.
+  const shrineMusic=new Audio('/assets/nhac-thien-dien-quan-am.mp3');
+  shrineMusic.loop=true; shrineMusic.preload='none'; shrineMusic.volume=.22;
+  try{state.sound=localStorage.getItem('chuaonline_audio')!=='off'}catch(_){state.sound=true}
+  $('soundBtn').textContent=state.sound?'♫':'♪';
+  $('soundBtn').title=state.sound?'Tắt âm thanh và nhạc thiền':'Bật âm thanh và nhạc thiền';
+  function syncShrineMusic(){
+    if(state.scene==='inside'&&state.sound&&!document.hidden){
+      const result=shrineMusic.play(); if(result&&typeof result.catch==='function')result.catch(()=>{});
+    }else shrineMusic.pause();
+  }
+  document.addEventListener('visibilitychange',syncShrineMusic);
   function tone(freq=660,duration=.17,vol=.05){if(!state.sound)return;try{audioCtx ||= new (window.AudioContext||window.webkitAudioContext)();const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type='sine';o.frequency.setValueAtTime(freq,audioCtx.currentTime);o.frequency.exponentialRampToValueAtTime(freq*.67,audioCtx.currentTime+duration);g.gain.setValueAtTime(vol,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(.001,audioCtx.currentTime+duration);o.connect(g).connect(audioCtx.destination);o.start();o.stop(audioCtx.currentTime+duration)}catch(_){}}
   const rounded = (x,y,w,h,r=12)=>{ctx.beginPath();ctx.roundRect(x,y,w,h,r);};
   function fill(x,y,w,h,color){ctx.fillStyle=color;ctx.fillRect(x,y,w,h)}
@@ -317,9 +330,9 @@ const MEDITATION_SPOTS = [{x:360,y:535},{x:450,y:535},{x:750,y:535},{x:840,y:535
   function interact(){if(!state.near||state.locked||!joined)return;
     if(state.scene==='temple'&&state.nearTree){showTree();return;}
     if(state.scene==='temple'&&Math.hypot(state.player.x-926,state.player.y-493)<117){if(state.ritual!==0){toast('Bạn đã có sớ cầu an, hãy đến cửa điện chính.');return;}modal('letterModal',true);$('prayerInput').focus();tone(660);return;}
-    if(state.scene==='temple'&&Math.hypot(state.player.x-600,state.player.y-401)<100){state.scene='inside';state.player.x=600;state.player.y=695;window.temple3D?.enter();state.near=false;sendPosition(true);$('chapter').textContent='02 / BÊN TRONG ĐIỆN';$('sceneTitle').innerHTML='Điện Quan Âm 3D,<br>thiền định bình an.';$('sceneSubtitle').textContent='Vào thiền tự do; có sớ mới thực hiện nghi thức dâng sớ. Joystick di chuyển theo hướng camera.';updateAction();tone(660);return;}
+    if(state.scene==='temple'&&Math.hypot(state.player.x-600,state.player.y-401)<100){state.scene='inside';state.player.x=600;state.player.y=695;window.temple3D?.enter();syncShrineMusic();state.near=false;sendPosition(true);$('chapter').textContent='02 / BÊN TRONG ĐIỆN';$('sceneTitle').innerHTML='Điện Quan Âm 3D,<br>thiền định bình an.';$('sceneSubtitle').textContent='Vào thiền tự do; có sớ mới thực hiện nghi thức dâng sớ. Joystick di chuyển theo hướng camera.';updateAction();tone(660);return;}
     if(state.scene==='inside'&&state.player.y>=688&&Math.abs(state.player.x-600)<105&&!state.meditating){
-      state.scene='temple';window.temple3D?.exit();state.player.x=600;state.player.y=445;
+      state.scene='temple';window.temple3D?.exit();syncShrineMusic();state.player.x=600;state.player.y=445;
       state.near=false;state.nearMeditation=false;state.meditationSpot=null;
       $('chapter').textContent='01 / SÂN CHÙA';$('sceneTitle').innerHTML='Viết sớ cầu an,<br>hoặc treo khẩu nghiệp.';
       $('sceneSubtitle').textContent='Điện mở cửa tự do. Vào thiền hoặc viết sớ cầu an tùy ý.';
@@ -354,9 +367,9 @@ const MEDITATION_SPOTS = [{x:360,y:535},{x:450,y:535},{x:750,y:535},{x:840,y:535
   });
   $('offerBtn').addEventListener('click',()=>{if(state.scene!=='inside'||state.ritual!==1)return;state.ritual=2;modal('offeringModal',false);modal('incenseModal',true);tone(640,.3)});
   $('incenseBtn').addEventListener('click',()=>{if(state.scene!=='inside'||state.ritual!==2)return;state.ritual=3;modal('incenseModal',false);$('blessingText').textContent='“'+state.blessing+'”';modal('blessingModal',true);tone(880,.3);setTimeout(()=>tone(1046,.4),240)});
-  $('releaseBtn').addEventListener('click',()=>{if(state.ritual!==3)return;modal('blessingModal',false);state.scene='release';window.temple3D?.exit();state.ritual=4;state.meditating=false;state.meditateClock=0;sendPosition(true);state.fishStart=-1;state.fishReleased=false;$('chapter').textContent='02 / HỒ SEN';$('sceneTitle').innerHTML='Thả muộn phiền,<br>giữ bình an.';$('sceneSubtitle').textContent='Một chú cá vàng đang chờ được về với làn nước.';$('releasePanel').classList.remove('hidden');$('dropFishBtn').classList.remove('hidden');$('againBtn').classList.add('hidden');$('releaseStatus').textContent='Một chú cá vàng đang đợi bạn...';$('releaseNote').textContent='Nhấn nút để xem chú cá bơi tự do dưới làn nước.';$('actionBtn').classList.add('hidden');$('controlTip').classList.add('hidden');$('mobileControls').classList.add('hidden');tone(523,.25)});
+  $('releaseBtn').addEventListener('click',()=>{if(state.ritual!==3)return;modal('blessingModal',false);state.scene='release';window.temple3D?.exit();syncShrineMusic();state.ritual=4;state.meditating=false;state.meditateClock=0;sendPosition(true);state.fishStart=-1;state.fishReleased=false;$('chapter').textContent='02 / HỒ SEN';$('sceneTitle').innerHTML='Thả muộn phiền,<br>giữ bình an.';$('sceneSubtitle').textContent='Một chú cá vàng đang chờ được về với làn nước.';$('releasePanel').classList.remove('hidden');$('dropFishBtn').classList.remove('hidden');$('againBtn').classList.add('hidden');$('releaseStatus').textContent='Một chú cá vàng đang đợi bạn...';$('releaseNote').textContent='Nhấn nút để xem chú cá bơi tự do dưới làn nước.';$('actionBtn').classList.add('hidden');$('controlTip').classList.add('hidden');$('mobileControls').classList.add('hidden');tone(523,.25)});
   $('dropFishBtn').addEventListener('click',()=>{if(state.fishReleased)return;state.fishReleased=true;state.fishStart=performance.now();state.count++;$('fishCount').textContent=String(state.count);try{localStorage.setItem('chuaonline_fish',String(state.count))}catch(_){}$('dropFishBtn').classList.add('hidden');$('releaseStatus').textContent='Cá vàng đã trở về hồ ✨';$('releaseNote').textContent='Mong điều vui đến gần, điều buồn trôi xa. Cá đang bơi trong hồ!';$('againBtn').classList.remove('hidden');tone(784,.35);setTimeout(()=>tone(1046,.4),240)});
-  $('againBtn').addEventListener('click',()=>{state.scene='temple';window.temple3D?.exit();sendPosition(true);state.player={x:610,y:610,dir:0,steps:0};state.keys.clear();state.joyX=0;state.joyY=0;resetJoystick();state.near=false;state.locked=false;state.ritual=0;state.hasLetter=false;state.blessing='';state.meditating=false;state.meditateClock=0;state.nearMeditation=false;state.meditationSpot=null;$('chapter').textContent='01 / SÂN CHÙA';$('sceneTitle').innerHTML='Viết sớ cầu an,<br>hoặc treo khẩu nghiệp.';$('sceneSubtitle').textContent='Hai hoạt động riêng: viết sớ cầu an hoặc treo lời khẩu nghiệp.';$('releasePanel').classList.add('hidden');$('actionBtn').classList.remove('hidden');$('controlTip').classList.remove('hidden');$('mobileControls').classList.remove('hidden');$('prayerInput').value='';$('prayerCharCount').textContent='0/400';updateAction()});
+  $('againBtn').addEventListener('click',()=>{state.scene='temple';window.temple3D?.exit();syncShrineMusic();sendPosition(true);state.player={x:610,y:610,dir:0,steps:0};state.keys.clear();state.joyX=0;state.joyY=0;resetJoystick();state.near=false;state.locked=false;state.ritual=0;state.hasLetter=false;state.blessing='';state.meditating=false;state.meditateClock=0;state.nearMeditation=false;state.meditationSpot=null;$('chapter').textContent='01 / SÂN CHÙA';$('sceneTitle').innerHTML='Viết sớ cầu an,<br>hoặc treo khẩu nghiệp.';$('sceneSubtitle').textContent='Hai hoạt động riêng: viết sớ cầu an hoặc treo lời khẩu nghiệp.';$('releasePanel').classList.add('hidden');$('actionBtn').classList.remove('hidden');$('controlTip').classList.remove('hidden');$('mobileControls').classList.remove('hidden');$('prayerInput').value='';$('prayerCharCount').textContent='0/400';updateAction()});
   const fullscreenBtn=$('fullscreenBtn');
   fullscreenBtn?.addEventListener('click', async()=>{
     try {
@@ -368,7 +381,7 @@ const MEDITATION_SPOTS = [{x:360,y:535},{x:450,y:535},{x:750,y:535},{x:840,y:535
   document.addEventListener('fullscreenchange',()=>{
     if(fullscreenBtn) fullscreenBtn.title=document.fullscreenElement?'Thoát toàn màn hình':'Toàn màn hình';
   });
-  $('soundBtn').addEventListener('click',()=>{state.sound=!state.sound;$('soundBtn').textContent=state.sound?'♫':'♪';$('soundBtn').title=state.sound?'Tắt âm thanh':'Bật âm thanh';tone(740,.24);toast(state.sound?'Đã bật âm thanh ✨':'Đã tắt âm thanh')});
+  $('soundBtn').addEventListener('click',()=>{state.sound=!state.sound;try{localStorage.setItem('chuaonline_audio',state.sound?'on':'off')}catch(_){}$('soundBtn').textContent=state.sound?'♫':'♪';$('soundBtn').title=state.sound?'Tắt âm thanh và nhạc thiền':'Bật âm thanh và nhạc thiền';syncShrineMusic();tone(740,.24);toast(state.sound?'Đã bật nhạc thiền và âm thanh ✨':'Đã tắt nhạc thiền và âm thanh')});
   document.addEventListener('keydown',e=>{const key=e.key.toLowerCase();if(document.activeElement=== $('karmaInput')||document.activeElement=== $('prayerInput')||document.activeElement===$('chatInput')||document.activeElement===$('nameInput'))return;if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(key))e.preventDefault();if(e.key==='Escape'){for(const id of ['letterModal','karmaWriteModal','treeModal','readNoteModal','blessingModal','helpModal']){if(!$(id).classList.contains('hidden')){if(id==='blessingModal')return;modal(id,false);return}}}if(state.locked)return;if(key==='e'&&!e.repeat){interact();return}state.keys.add(key)});
   document.addEventListener('keyup',e=>state.keys.delete(e.key.toLowerCase()));window.addEventListener('blur',()=>state.keys.clear());
   // Real analog virtual joystick: one pointer at a time, independent of screen aspect ratio.

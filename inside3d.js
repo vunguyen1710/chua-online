@@ -111,12 +111,96 @@ function assignBubble(g, text) {
 function assignLabelIfChanged(g, name) { if (g.userData.lastName === name) return; g.userData.lastName = name; assignLabel(g, name); }
 function mapPosition(p) { return { x: THREE.MathUtils.clamp((p.x - 600) / 46, -11.8, 11.8), z: THREE.MathUtils.clamp((p.y - 570) / 21, -7.6, 9.2) }; }
 
-const meditationPads2D = [
-  {x:360,y:535},{x:450,y:535},{x:750,y:535},{x:840,y:535},
-  {x:360,y:595},{x:450,y:595},{x:750,y:595},{x:840,y:595},
-  {x:360,y:655},{x:450,y:655},{x:750,y:655},{x:840,y:655}
-];
+const meditationPads2D = [{"x":315,"y":505},{"x":430,"y":505},{"x":770,"y":505},{"x":885,"y":505},{"x":315,"y":591},{"x":430,"y":591},{"x":770,"y":591},{"x":885,"y":591},{"x":315,"y":677},{"x":430,"y":677},{"x":770,"y":677},{"x":885,"y":677}];
 const meditationPads3D = meditationPads2D.map(mapPosition);
+
+// Detailed Vietnamese folk ornamental wall panels and open wooden lattice windows.
+function makeFolkWalls() {
+  const lacquer=col('#7e251e',.5), trim=col('#d6a859',.4,.35);
+  const ink=col('#b77a35',.55), ceramic=col('#93acaa',.62), blue=col('#496e7d',.72);
+  // Rear wall is a carved red/gold surface with decorative panels.
+  for(let i=-6;i<=6;i++) {
+    const x=i*2.15;
+    if(Math.abs(x)<5.5)continue; // reserve central shrine mural
+    box(1.85,4.9,.07,lacquer,x,3.18,-19.66);
+    box(1.9,.08,.12,trim,x,5.55,-19.54);
+    box(1.9,.08,.12,trim,x,1.05,-19.54);
+    for(const j of [-.62,.62])box(.055,4.4,.12,ink,x+j,3.2,-19.52);
+    const round=new THREE.Mesh(new THREE.TorusGeometry(.46,.065,7,12),trim);
+    round.position.set(x,3.45,-19.47); scene.add(round);
+    makeLotus(x,3.4,-19.4,.7);
+  }
+  // Side walls: carved panels separated by open-style lattice windows. Their geometry is
+  // close to the edge and uses non-depth-writing transparent material to avoid blocking camera.
+  for(const side of [-1,1]) {
+    const x=side*14.82;
+    for(const z of [-13,-5,3,11]) {
+      const group=new THREE.Group();scene.add(group);
+      const frame=col('#9d4a2d',.55), engraving=col('#e3b565',.5), stained=col('#a9c5b4',.7);
+      stained.transparent=true;stained.opacity=.19;stained.depthWrite=false;stained.side=THREE.DoubleSide;
+      // Wall segment between windows, decorative horizontal bands.
+      const panelMat=lacquer.clone();panelMat.transparent=true;panelMat.opacity=.22;panelMat.depthWrite=false;panelMat.side=THREE.DoubleSide;
+      box(.12,4.8,6.1,panelMat,x,3,z,group);
+      box(.21,.13,6.25,engraving,x-side*.1,5.3,z,group);
+      box(.21,.13,6.25,engraving,x-side*.1,.9,z,group);
+      // Window inset; the window is visibly lighter than the wall.
+      box(.24,2.55,3.15,stained,x-side*.16,3.25,z,group);
+      for(const hz of [-1.6,1.6])box(.27,3.1,.17,frame,x-side*.18,3.25,z+hz,group);
+      for(const hy of [1.68,4.82])box(.27,.15,3.3,frame,x-side*.18,hy,z,group);
+      for(let j=-2;j<=2;j++)box(.28,2.9,.065,frame,x-side*.19,3.25,z+j*.49,group);
+      for(const y of [2.5,3.3,4.1])box(.28,.065,3.1,frame,x-side*.19,y,z,group);
+      // Gold diamond motifs centered on the window.
+      for(const v of [-1,0,1]) {
+        const square=box(.045,.33,.33,engraving,x-side*.23,3.25,z+v*.82,group);
+        square.rotation.x=Math.PI/4;
+      }
+    }
+  }
+}
+function decorateAltar() {
+  const lacquer=col('#7c231d',.44), trim=col('#e3b45f',.29,.65), dark=col('#40180f',.58);
+  const marble=col('#f1dfb9',.48), jade=col('#70a79a',.45), pink=col('#e9a9bd',.64);
+  // A multi-level lacquered dais behind the existing offering table.
+  box(10.4,.35,4.2,trim,0,.32,-15.25);
+  box(10,.62,3.9,lacquer,0,.77,-15.25);
+  box(8.9,.19,3.6,trim,0,1.14,-15.25);
+  box(7.6,.95,3.2,dark,0,1.73,-15.25);
+  box(7.9,.13,3.3,trim,0,2.24,-15.25);
+  for(const side of [-1,1]){
+    // Screen panels with gold frames and large lotus reliefs.
+    const x=side*4.9;
+    box(.3,5.2,2, lacquer,x,3.48,-16.8);
+    box(.37,5.3,.12, trim,x,3.48,-15.9);
+    makeLotus(x,3.8,-15.75,1.28);
+    // Pair of ceremonial blue-and-white vases.
+    const vx=side*3.28;
+    cyl(.38,.53,1,marble,vx,2.85,-14.7);
+    cyl(.42,.42,.10,jade,vx,3.37,-14.7);
+    for(let k=0;k<5;k++){
+      let a=k*Math.PI*2/5;
+      const sx=vx+Math.sin(a)*.55, sz=-14.7+Math.cos(a)*.35;
+      makeLotus(sx,4.05+Math.cos(k)*.23,sz,.63);
+    }
+    // Glowing oil lamps beside altar.
+    const cx=side*4.35;
+    cyl(.12,.22,1.15,trim,cx,2.28,-11.35);
+    const flame=new THREE.Mesh(new THREE.ConeGeometry(.18,.42,12),new THREE.MeshBasicMaterial({color:'#ffe1a1'}));
+    flame.position.set(cx,3.04,-11.35);scene.add(flame);
+    scene.add(new THREE.PointLight('#ffb45e',2.8,5).translateX(cx).translateY(3.03).translateZ(-11.35));
+  }
+  // Ornamental lotus motifs on the front of altar.
+  for(let x=-3.75;x<=3.76;x+=1.25){
+    makeLotus(x,1.04,-11.2,.47);
+    box(.08,.12,.12,trim,x,1.48,-11.2);
+  }
+  // Engraved red/gold horizontal bands and framed plaque.
+  box(10.6,.23,.19,trim,0,3.02,-18.7);
+  const plaque=box(5.4,1.0,.2,lacquer,0,5.6,-18.6);
+  box(5.65,.07,.25,trim,0,6.13,-18.5);
+  box(5.65,.07,.25,trim,0,5.08,-18.5);
+  const title=textSprite('ĐIỆN QUAN ÂM','#64251d','#ffe6a1',46);
+  title.scale.set(5.25,1.12,1);title.position.set(0,5.63,-18.44);scene.add(title);
+}
 
 function setupCameraControls() {
   if (!host || host.dataset.controlsBound === '1') return;
@@ -181,6 +265,8 @@ function setup() {
   const altarGlow = new THREE.PointLight('#efb04d', 12, 12); altarGlow.position.set(0, 3, -11.5); scene.add(altarGlow);
   for (const x of [-2.5, 2.5]) { cyl(.09, .09, 1.1, gold, x, 2.35, -10.2); sphere(.19, new THREE.MeshStandardMaterial({ color: '#ffc76e', emissive: '#ea9c39', emissiveIntensity: 2 }), x, 2.97, -10.2); }
   makeStatue();
+  makeFolkWalls();
+  decorateAltar();
 
   const ring = new THREE.Mesh(new THREE.TorusGeometry(.9, .06, 8, 60), new THREE.MeshBasicMaterial({ color: '#ffd17e', transparent: true, opacity: .7 }));
   ring.rotation.x = -Math.PI / 2; ring.position.set(0, .04, -6.6); scene.add(ring); ritualLight = ring;
@@ -221,6 +307,7 @@ function setup() {
     base.position.set(spot.x, .05, spot.z); scene.add(base);
     const cushion = new THREE.Mesh(new THREE.CylinderGeometry(.8, .8, .17, 28), new THREE.MeshStandardMaterial({ color: i < 3 ? '#d6a15f' : '#d8b57b', roughness: .76 }));
     cushion.position.set(spot.x, .17, spot.z); scene.add(cushion);
+    const edge=new THREE.Mesh(new THREE.TorusGeometry(.78,.035,8,48),new THREE.MeshStandardMaterial({color:'#efd4a5',roughness:.8}));edge.rotation.x=-Math.PI/2;edge.position.set(spot.x,.25,spot.z);scene.add(edge);
     const glow = new THREE.Mesh(new THREE.TorusGeometry(1.02, .045, 8, 48), new THREE.MeshBasicMaterial({ color: '#ffe4a0', transparent: true, opacity: .24 }));
     glow.rotation.x = -Math.PI / 2; glow.position.set(spot.x, .11, spot.z); glow.userData.phase = i; scene.add(glow); sceneData.padGlows.push(glow);
   });
