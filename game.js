@@ -399,8 +399,8 @@ const MEDITATION_SPOTS = [{"x":255,"y":500},{"x":405,"y":500},{"x":795,"y":500},
     $('sceneSubtitle').textContent='Nằm theo dòng sông vòng tròn 3D, ngắm núi và quay lại bến sau mỗi vòng.';
     $('riverPanel').classList.remove('hidden');$('actionBtn').classList.add('hidden');
     $('mobileControls').classList.add('hidden');$('controlTip').classList.add('hidden');
-    $('riverFloatBtn').textContent='🌊 Bắt đầu trôi'; $('riverFloatBtn').disabled=!window.river3D?.getState?.().ready;window.river3D?.setName?.(nickname);
-    sendPosition(true);toast('🌊 Bạn đã đến Thung Lũng Trôi Sông 3D!');
+    $('riverFloatBtn').textContent='🦆 Bắt đầu trôi'; $('riverFloatBtn').disabled=!window.river3D?.getState?.().ready;window.river3D?.setName?.(nickname);
+    sendPosition(true);toast('🌊 Bạn đã đến Thung Lũng Trôi Sông 3D! Chuẩn bị nằm trên phao con vịt nhé.');
   }
   function leaveRiver(){
     if(state.scene!=='river')return;
@@ -410,7 +410,7 @@ const MEDITATION_SPOTS = [{"x":255,"y":500},{"x":405,"y":500},{"x":795,"y":500},
     window.courtyard3D?.enter();syncShrineMusic();sendPosition(true);
     $('chapter').textContent='01 / KHU XẢ STRESS';
     $('sceneTitle').innerHTML='Xả bực, thư giãn,<br>và treo khẩu nghiệp.';
-    $('sceneSubtitle').textContent='Bạn đã trở lại sân chính. Cổng Thung Lũng Trôi Sông luôn mở để bạn ghé lại.';
+    $('sceneSubtitle').textContent='Bạn đã trở lại sân chính. Cổng Thung Lũng Trôi Sông luôn mở để bạn ghé lại và thả trôi trên phao con vịt.';
     $('riverPanel').classList.add('hidden');$('actionBtn').classList.remove('hidden');
     $('mobileControls').classList.remove('hidden');$('controlTip').classList.remove('hidden');
     updateAction();toast('Bạn đã quay lại khu xả stress.');
