@@ -4,8 +4,8 @@ import { GLTFLoader } from '/vendor/three/addons/loaders/GLTFLoader.js';
 const host=document.getElementById('river3d');
 let renderer,scene,camera,player,avatar,loaderReady=false,entered=false,looping=false,peers=new Map();
 let points=[],curveDistance=[],totalDistance=1,riverIndex=60,startDistance=0,travelled=0,laps=0,clock=performance.now(),water=null,waterStrip=null,duckTemplate=null;
-let mapBounds={minX:-210,maxX:210,minZ:-210,maxZ:210};
-let camOrbit=0,camHeight=4.8,camDistance=8.3,drag=null,entry=null,boarding=0;
+let mapBounds={minX:-198,maxX:198,minZ:-198,maxZ:198},riverHalfWidth=12;
+let camOrbit=0,camHeight=11,camDistance=13,drag=null,entry=null,boarding=0,cameraInitialized=false;
 const speed=5.25; // metres per second along the stream
 const driftProfiles=new Map();
 const mat=(c,roughness=.76)=>new THREE.MeshStandardMaterial({color:c,roughness});
@@ -146,6 +146,7 @@ function floatingPoint(dist){
 }
 function readyPath(d){
   if(d.bounds) mapBounds=d.bounds;
+  riverHalfWidth=(d.river?.averageWidth||24)*.5;
   entry=d.entryDeck;
   points=d.floatingPath.map(p=>new THREE.Vector3(p.x,p.y,p.z));
   curveDistance=[];let length=0;
@@ -154,9 +155,8 @@ function readyPath(d){
   }
   length+=points[points.length-1].distanceTo(points[0]);totalDistance=length;
   startDistance=curveDistance[d.river.startIndex] || 0;riverIndex=startDistance;travelled=0;laps=0;
+  // The v7.1 GLB already contains the full river water surface. Do not add a second translucent strip.
   if(waterStrip){ scene.remove(waterStrip); waterStrip.geometry?.dispose?.(); waterStrip.material?.dispose?.(); waterStrip=null; }
-  waterStrip = buildWaterSurface(points, d.river?.averageWidth || 19);
-  if(waterStrip){ scene.add(waterStrip); water = waterStrip; }
   document.getElementById('riverStatus').textContent='Đã đến bến sông. Nhấn “Bắt đầu trôi” để thả mình theo dòng nước uốn lượn.';
   document.getElementById('riverFloatBtn').disabled=!loaderReady;
 }
@@ -171,50 +171,65 @@ function create(){
   const sun=new THREE.DirectionalLight('#fff2d3',3.3);sun.position.set(-40,95,35);scene.add(sun);
   player=person('#d6a35d');scene.add(player);updateLabel(player,'Bạn'); attachDuckRide(player);
   const loader=new GLTFLoader();
-  loader.load('/assets/thung-lung-song-vong-tron-3d.glb?v=7.0.0',gl=>{scene.add(gl.scene);loaderReady=true;document.getElementById('riverFloatBtn').disabled=!points.length;document.getElementById('riverStatus').textContent='Đã tải thung lũng 3D mới rộng hơn. Bắt đầu trôi khi bạn sẵn sàng.';},undefined,err=>{
-    console.error('River GLB load failed',err);document.getElementById('riverStatus').textContent='Không tải được mô hình thung lũng. Hãy tải lại trang.';
+  loader.load('/assets/thung-lung-song-vong-tron-3d.glb?v=7.2.0',gl=>{scene.add(gl.scene);loaderReady=true;document.getElementById('riverFloatBtn').disabled=!points.length;document.getElementById('riverStatus').textContent='Đã tải thung lũng 3D mới rộng hơn. Bắt đầu trôi khi bạn sẵn sàng.';},undefined,err=>{
+    console.error('River GLB load failed',err);document.getElementById('riverStatus').textContent='Lỗi tải bản đồ sông 3D. Kiểm tra kết nối và tải lại trang.';
   });
-  loader.load('/assets/phao-con-vit-3d.glb?v=7.0.0', gl=>{ duckTemplate=gl.scene; replaceDuckModel(player); for(const peer of peers.values()) replaceDuckModel(peer.group); }, undefined, err=>{ console.warn('Duck float model load failed, fallback will be used', err); });
-  fetch('/assets/river-route.json?v=7.0.0',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('river route not found');return r.json()}).then(readyPath).catch(err=>{
+  loader.load('/assets/phao-con-vit-3d.glb?v=7.2.0', gl=>{ duckTemplate=gl.scene; replaceDuckModel(player); for(const peer of peers.values()) replaceDuckModel(peer.group); }, undefined, err=>{ console.warn('Duck float model load failed, fallback will be used', err); });
+  fetch('/assets/river-route.json?v=7.2.0',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('river route not found');return r.json()}).then(readyPath).catch(err=>{
     console.error(err);document.getElementById('riverStatus').textContent='Không tải được tuyến sông. Hãy tải lại trang.';
   });
   host.addEventListener('pointerdown',e=>{if(!entered)return;drag={id:e.pointerId,x:e.clientX,y:e.clientY};host.setPointerCapture(e.pointerId)});
-  host.addEventListener('pointermove',e=>{if(!drag||e.pointerId!==drag.id)return;camOrbit+= (e.clientX-drag.x)*.006;camHeight=THREE.MathUtils.clamp(camHeight+(drag.y-e.clientY)*.025,3.2,17);drag.x=e.clientX;drag.y=e.clientY});
+  host.addEventListener('pointermove',e=>{if(!drag||e.pointerId!==drag.id)return;camOrbit+= (e.clientX-drag.x)*.006;camHeight=THREE.MathUtils.clamp(camHeight+(drag.y-e.clientY)*.025,7,30);drag.x=e.clientX;drag.y=e.clientY});
   for(const name of ['pointerup','pointercancel','lostpointercapture'])host.addEventListener(name,()=>drag=null);
-  host.addEventListener('wheel',e=>{if(!entered)return;e.preventDefault();camDistance=THREE.MathUtils.clamp(camDistance+e.deltaY*.012,5.5,25)},{passive:false});
+  host.addEventListener('wheel',e=>{if(!entered)return;e.preventDefault();camDistance=THREE.MathUtils.clamp(camDistance+e.deltaY*.012,7,35)},{passive:false});
   window.addEventListener('resize',resize);resize();requestAnimationFrame(frame);return true;
 }
 function resize(){if(!renderer)return;const w=host.clientWidth||1,h=host.clientHeight||1;renderer.setSize(w,h,false);camera.aspect=w/h;camera.fov=w<h?77:64;camera.updateProjectionMatrix()}
 function frame(now){requestAnimationFrame(frame);if(!renderer||!entered||!scene)return;const dt=Math.min(.06,(now-clock)/1000);clock=now;
   if(!entry){renderer.render(scene,camera);return;}
   let center,tangent;
+  const localProfile=profileFor('local');
   if(looping && points.length){
-    boarding=Math.min(2.6,boarding+dt);if(boarding>=2.6){travelled+=speed*dt;}riverIndex=(startDistance+travelled)%totalDistance;
-    const newLaps=Math.floor(travelled/totalDistance);if(newLaps!==laps){laps=newLaps;document.getElementById('riverLaps').textContent=String(laps);}
+    boarding=Math.min(1.6,boarding+dt);
+    if(boarding>=1.6){ travelled+=speed*(1+localProfile.speedSway*Math.sin(now*.0009 + localProfile.bobPhase))*dt; }
+    riverIndex=(startDistance+travelled)%totalDistance;
+    const newLaps=Math.floor(travelled/totalDistance);
+    if(newLaps!==laps){laps=newLaps;document.getElementById('riverLaps').textContent=String(laps);}
     center=floatingPoint(riverIndex);
-    if(boarding<2.6){const u=THREE.MathUtils.smoothstep(boarding/2.6,0,1);center.lerpVectors(new THREE.Vector3(entry.x,entry.y+.3,entry.z),center,u);}
-    tangent=floatingPoint(riverIndex+1.5).sub(floatingPoint(riverIndex-1.5)).normalize();
+    tangent=floatingPoint(riverIndex+2.2).sub(floatingPoint(riverIndex-2.2)).normalize();
+    // Different players vary in gentle lateral sway. The safeDriftMax prevents ever touching banks.
+    const nrm=new THREE.Vector3(-tangent.z,0,tangent.x).normalize();
+    const safe=Math.max(0.25,Math.min(2.0,(riverHalfWidth-3.2)*.25));
+    const sway=THREE.MathUtils.clamp(localProfile.laneBias+Math.sin(now*.0005+localProfile.rollPhase)*localProfile.swayAmp,-safe,safe);
+    center.addScaledVector(nrm,sway);
+    if(boarding<1.6){ const u=THREE.MathUtils.smoothstep(boarding/1.6,0,1); center.lerpVectors(new THREE.Vector3(entry.x,entry.y+.3,entry.z),center,u); }
+    center.y += Math.sin(now*.0035+localProfile.bobPhase)*localProfile.bobAmp;
     document.getElementById('riverProgress').textContent=Math.round((travelled%totalDistance)/totalDistance*100)+'%';
-  }else{center=new THREE.Vector3(entry.x,entry.y+.3,entry.z);tangent=new THREE.Vector3(0,0,1);}
+  }else{
+    center=new THREE.Vector3(entry.x,entry.y+.3,entry.z);
+    tangent=floatingPoint(startDistance+3).sub(floatingPoint(startDistance-3)).normalize();
+  }
   player.position.copy(center);
   if(looping){
     setFloatingPose(player,true);
-    const yaw=Math.atan2(tangent.x, tangent.z);
-    player.rotation.y = yaw + localProfile.yawOffset + Math.sin(now*0.0007+localProfile.rollPhase)*0.03;
-    player.userData.body.rotation.x = -.45 + Math.sin(now*0.0028 + localProfile.rollPhase)*localProfile.pitchAmp;
-    player.userData.body.rotation.z = Math.sin(now*0.0021 + localProfile.rollPhase)*localProfile.rollAmp;
+    player.rotation.y = Math.atan2(tangent.x,tangent.z) + localProfile.yawOffset + Math.sin(now*.0007+localProfile.rollPhase)*.02;
+    player.userData.body.rotation.x = -.45 + Math.sin(now*.0028+localProfile.rollPhase)*localProfile.pitchAmp;
+    player.userData.body.rotation.z = Math.sin(now*.0021+localProfile.rollPhase)*localProfile.rollAmp;
   }else{
     setFloatingPose(player,false);
-    player.rotation.y += (0-player.rotation.y)*.12;
+    player.rotation.y=Math.atan2(tangent.x,tangent.z);
   }
-  const backward=looping?tangent.clone().multiplyScalar(-camDistance):new THREE.Vector3(0,0,camDistance);
+  const backward=tangent.clone().multiplyScalar(-camDistance);
   const dx=backward.x*Math.cos(camOrbit)-backward.z*Math.sin(camOrbit);
   const dz=backward.x*Math.sin(camOrbit)+backward.z*Math.cos(camOrbit);
   const target=new THREE.Vector3(player.position.x,player.position.y+.72,player.position.z);
-  const desired=target.clone().add(new THREE.Vector3(dx,camHeight,dz));
-  camera.position.lerp(desired,.055);camera.lookAt(target);
+  const desired=target.clone().add(new THREE.Vector3(dx, looping ? Math.max(7,camHeight) : Math.max(17,camHeight), dz));
+  // Snap on first frame: never fly the camera from world origin through a mountain.
+  if(!cameraInitialized){ camera.position.copy(desired); cameraInitialized=true; }
+  else camera.position.lerp(desired,.12);
+  camera.lookAt(target);
   if(player.userData.label)player.userData.label.lookAt(camera.position);
-  if(waterStrip){ waterStrip.position.y = Math.sin(now*.0012)*.03; if(waterStrip.material){ waterStrip.material.opacity = 0.88 + Math.sin(now*.0018)*.04; waterStrip.material.color.setHSL(0.53,0.62,0.53 + Math.sin(now*.0009)*0.03); } }
+  // Water is part of the verified GLB; no duplicate water mesh is animated over it.
   for(const peer of peers.values()){
     const prof=profileFor(peer.profileKey || 'peer');
     let ppos=peer.target.clone();
@@ -246,10 +261,10 @@ function syncPeers(others){
   for(const [id,p] of peers){if(!seen.has(id)){scene.remove(p.group);peers.delete(id)}}
 }
 window.river3D={
-  enter(){if(!renderer&&!create())return false;host.classList.remove('hidden');host.style.pointerEvents='auto';entered=true;clock=performance.now();resize();return true},
+  enter(){if(!renderer&&!create())return false;host.classList.remove('hidden');host.style.pointerEvents='auto';entered=true;clock=performance.now();cameraInitialized=false;camHeight=11;camDistance=13;resize();return true},
   exit(){entered=false;looping=false;host.classList.add('hidden');host.style.pointerEvents='none';document.getElementById('riverFloatBtn').textContent='🦆 Bắt đầu trôi'},
-  start(){if(!points.length||!loaderReady)return false;looping=true;boarding=0;document.getElementById('riverFloatBtn').textContent='🦆 Lên bờ';document.getElementById('riverStatus').textContent='Bạn đang thả trôi trên phao con vịt giữa dòng sông nhiều khúc cua… Nhấn Lên bờ để dừng, hoặc Quay về sân để rời khu.';return true},
-  stop(){looping=false;document.getElementById('riverFloatBtn').textContent='🦆 Bắt đầu trôi';document.getElementById('riverStatus').textContent='Bạn đã lên bờ. Mỗi lần trôi sẽ có nhịp lắc và lệch dòng hơi khác nhau, nên cảm giác không ai giống ai.';return true},
+  start(){if(!points.length||!loaderReady)return false;looping=true;boarding=0;cameraInitialized=false;document.getElementById('riverFloatBtn').textContent='🦆 Lên bờ';document.getElementById('riverStatus').textContent='Bạn đang thả trôi trên phao con vịt giữa dòng sông nhiều khúc cua… Nhấn Lên bờ để dừng, hoặc Quay về sân để rời khu.';return true},
+  stop(){looping=false;cameraInitialized=false;document.getElementById('riverFloatBtn').textContent='🦆 Bắt đầu trôi';document.getElementById('riverStatus').textContent='Bạn đã lên bờ. Mỗi lần trôi sẽ có nhịp lắc và lệch dòng hơi khác nhau, nên cảm giác không ai giống ai.';return true},
   isFloating(){return looping},
   toggle(){return looping?this.stop():this.start()},
   getNetworkPosition(){if(!entry)return {x:600,y:610};const p=looping?floatingPoint(riverIndex):entry;return riverToGame(p)},
