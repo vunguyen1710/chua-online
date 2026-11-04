@@ -132,6 +132,9 @@
   const rand = (a,b)=> a+Math.random()*(b-a);
 const MEDITATION_SPOTS = [{"x":255,"y":500},{"x":405,"y":500},{"x":795,"y":500},{"x":945,"y":500},{"x":255,"y":600},{"x":405,"y":600},{"x":795,"y":600},{"x":945,"y":600},{"x":255,"y":700},{"x":405,"y":700},{"x":795,"y":700},{"x":945,"y":700}];
   const ZONES={tree:{x:190,y:442,r:145},desk:{x:926,y:493,r:117},door:{x:600,y:401,r:100},smash:{x:390,y:508,r:96},scream:{x:760,y:508,r:96},ritual:{x:600,y:460,r:105}};
+  // Compare in the same metric as the 3D world (32.5 px per X unit; 15.4 px per Z unit).
+  // This keeps click/interaction radii centered exactly on the 3D marker rather than on old pixel circles.
+  function near3D(zone,radius){return Math.hypot((state.player.x-zone.x)/32.5,(state.player.y-zone.y)/15.4)<radius;}
   function nearestMeditationSpot(){
     if(state.scene!=='inside') return null;
     // Never snap to the first overlapping pad: pick the closest, with a tight interaction radius.
@@ -317,11 +320,11 @@ const MEDITATION_SPOTS = [{"x":255,"y":500},{"x":405,"y":500},{"x":795,"y":500},
     }state.player.steps+=dt*2.8;}
     if(state.scene==='inside' && state.meditating){state.meditateClock+=dt; if(state.meditateClock>=1){const gain=Math.floor(state.meditateClock); state.meditateClock-=gain; setVirtue(state.virtue+gain); window.temple3D?.virtueGain(gain);}}
     let near=false;
-    state.nearTree=state.scene==='temple'&&Math.hypot(state.player.x-ZONES.tree.x,state.player.y-ZONES.tree.y)<ZONES.tree.r;
-    state.nearSmash=state.scene==='temple'&&Math.hypot(state.player.x-ZONES.smash.x,state.player.y-ZONES.smash.y)<ZONES.smash.r;
-    state.nearScream=state.scene==='temple'&&Math.hypot(state.player.x-ZONES.scream.x,state.player.y-ZONES.scream.y)<ZONES.scream.r;
+    state.nearTree=state.scene==='temple'&&near3D(ZONES.tree,3.2);
+    state.nearSmash=state.scene==='temple'&&near3D(ZONES.smash,2.3);
+    state.nearScream=state.scene==='temple'&&near3D(ZONES.scream,2.3);
     state.meditationSpot=nearestMeditationSpot(); state.nearMeditation=!!state.meditationSpot || state.meditating;
-    if(state.scene==='temple') near=state.nearTree||state.nearSmash||state.nearScream||Math.hypot(state.player.x-ZONES.desk.x,state.player.y-ZONES.desk.y)<ZONES.desk.r||Math.hypot(state.player.x-ZONES.door.x,state.player.y-ZONES.door.y)<ZONES.door.r;
+    if(state.scene==='temple') near=state.nearTree||state.nearSmash||state.nearScream||near3D(ZONES.desk,2.25)||near3D(ZONES.door,2.1);
     else near=state.meditating||!!state.meditationSpot||(state.ritual===1&&Math.hypot(state.player.x-ZONES.ritual.x,state.player.y-ZONES.ritual.y)<ZONES.ritual.r)||(Math.abs(state.player.x-600)<105&&state.player.y>=688);
     if(near!==state.near||state.lastNearTree!==state.nearTree||state.lastNearMeditation!==state.nearMeditation||state.lastNearSmash!==state.nearSmash||state.lastNearScream!==state.nearScream){state.near=near;state.lastNearTree=state.nearTree;state.lastNearMeditation=state.nearMeditation;state.lastNearSmash=state.nearSmash;state.lastNearScream=state.nearScream;updateAction()}}
     // Responsive camera: preserve world coordinates (1200×760) for Socket.IO.
@@ -345,15 +348,15 @@ const MEDITATION_SPOTS = [{"x":255,"y":500},{"x":405,"y":500},{"x":795,"y":500},
     state.view={scale,offX,offY};
     ctx.setTransform(dpr*scale,0,0,dpr*scale,dpr*offX,dpr*offY);
     if(state.scene==='temple'){drawTemple();drawPeers();drawPlayer();sendPosition();window.courtyard3D?.sync({player:state.player,others:[...peers.entries()].map(([id,p])=>({...p,id,chat:p.bubble?.until>performance.now()?p.bubble.text:''})),name:nickname,bubble:myBubble?.until>performance.now()?myBubble.text:''})}else if(state.scene==='inside'){drawInside();drawPeers();drawPlayer();sendPosition();window.temple3D?.sync({player:{...state.player,meditating:state.meditating},others:[...peers.entries()].map(([id,p])=>({...p,id,chat:p.bubble?.until>performance.now()?p.bubble.text:''})),name:nickname,bubble:myBubble?.until>performance.now()?myBubble.text:''})}else drawRelease();requestAnimationFrame(render)}
-  function updateAction(){const enabled=state.scene!=='release'&&state.near&&!state.locked;$('actionBtn').disabled=!enabled;const atDesk=state.scene==='temple'&&Math.hypot(state.player.x-ZONES.desk.x,state.player.y-ZONES.desk.y)<ZONES.desk.r;const atDoor=state.scene==='temple'&&Math.hypot(state.player.x-ZONES.door.x,state.player.y-ZONES.door.y)<ZONES.door.r;$('actionLabel').textContent=state.meditating?'🌿 Đứng dậy khỏi đệm thư giãn':state.nearMeditation?'🧘 Ngồi thư giãn (+1 bình tĩnh/giây)':state.nearTree?'🌳 Cây Khẩu Nghiệp':state.nearSmash?'🥊 Đập bao cát xả stress':state.nearScream?'📣 Vào Phòng Hét':atDesk?'📝 Viết điều đang bực':atDoor?'🏠 Vào Nhà Hồi Phục':state.scene==='inside'?(state.player.y>=688&&Math.abs(state.player.x-600)<105?'🚪 Trở lại khu xả stress':state.ritual===1?'📦 Bỏ vào Hộp Xả Bực':'🌿 Vào đệm thư giãn'):'Hãy đến một khu tương tác'}
+  function updateAction(){const enabled=state.scene!=='release'&&state.near&&!state.locked;$('actionBtn').disabled=!enabled;const atDesk=state.scene==='temple'&&near3D(ZONES.desk,2.25);const atDoor=state.scene==='temple'&&near3D(ZONES.door,2.1);$('actionLabel').textContent=state.meditating?'🌿 Đứng dậy khỏi đệm thư giãn':state.nearMeditation?'🧘 Ngồi thư giãn (+1 bình tĩnh/giây)':state.nearTree?'🌳 Cây Khẩu Nghiệp':state.nearSmash?'🥊 Đập bao cát xả stress':state.nearScream?'📣 Vào Phòng Hét':atDesk?'📝 Viết điều đang bực':atDoor?'🏠 Vào Nhà Hồi Phục':state.scene==='inside'?(state.player.y>=688&&Math.abs(state.player.x-600)<105?'🚪 Trở lại khu xả stress':state.ritual===1?'📦 Bỏ vào Hộp Xả Bực':'🌿 Vào đệm thư giãn'):'Hãy đến một khu tương tác'}
   function modal(id,show){$(id).classList.toggle('hidden',!show);state.locked=show;state.keys.clear();state.joyX=0;state.joyY=0;resetJoystick();updateAction()}
   let toastTimer;function toast(s){$('toast').textContent=s;$('toast').classList.add('visible');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').classList.remove('visible'),2800)}
   function interact(){if(!state.near||state.locked||!joined)return;
     if(state.scene==='temple'&&state.nearTree){showTree();return;}
     if(state.scene==='temple'&&state.nearSmash){setVirtue(state.virtue+2); window.courtyard3D?.flashSmash?.(); toast('🥊 Bạn vừa đập bao cát tượng trưng. +2 bình tĩnh'); tone(520,.18); setTimeout(()=>tone(460,.15),120); updateAction(); return;}
     if(state.scene==='temple'&&state.nearScream){modal('screamModal',true); $('screamInput').focus(); tone(700,.18); return;}
-    if(state.scene==='temple'&&Math.hypot(state.player.x-ZONES.desk.x,state.player.y-ZONES.desk.y)<ZONES.desk.r){if(state.ritual!==0){toast('Bạn đã viết xong điều muốn xả, hãy mang nó vào Nhà Hồi Phục.');return;}modal('letterModal',true);$('prayerInput').focus();tone(660);return;}
-    if(state.scene==='temple'&&Math.hypot(state.player.x-ZONES.door.x,state.player.y-ZONES.door.y)<ZONES.door.r){state.scene='inside';state.player.x=600;state.player.y=695;window.courtyard3D?.exit();window.temple3D?.enter();syncShrineMusic();state.near=false;sendPosition(true);$('chapter').textContent='02 / NHÀ HỒI PHỤC';$('sceneTitle').innerHTML='Nhà Hồi Phục 3D,<br>thở chậm và dịu lại.';$('sceneSubtitle').textContent='Bạn có thể vào ngồi thư giãn tự do. Nếu đã viết điều bực riêng tư, hãy đem vào Hộp Xả Bực. Joystick tự theo hướng camera.';updateAction();tone(660);return;}
+    if(state.scene==='temple'&&near3D(ZONES.desk,2.25)){if(state.ritual!==0){toast('Bạn đã viết xong điều muốn xả, hãy mang nó vào Nhà Hồi Phục.');return;}modal('letterModal',true);$('prayerInput').focus();tone(660);return;}
+    if(state.scene==='temple'&&near3D(ZONES.door,2.1)){state.scene='inside';state.player.x=600;state.player.y=695;window.courtyard3D?.exit();window.temple3D?.enter();syncShrineMusic();state.near=false;sendPosition(true);$('chapter').textContent='02 / NHÀ HỒI PHỤC';$('sceneTitle').innerHTML='Nhà Hồi Phục 3D,<br>thở chậm và dịu lại.';$('sceneSubtitle').textContent='Bạn có thể vào ngồi thư giãn tự do. Nếu đã viết điều bực riêng tư, hãy đem vào Hộp Xả Bực. Joystick tự theo hướng camera.';updateAction();tone(660);return;}
     if(state.scene==='inside'&&state.player.y>=688&&Math.abs(state.player.x-600)<105&&!state.meditating){
       state.scene='temple';window.temple3D?.exit();window.courtyard3D?.enter();syncShrineMusic();state.player.x=600;state.player.y=445;
       state.near=false;state.nearMeditation=false;state.meditationSpot=null;

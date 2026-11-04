@@ -46,6 +46,8 @@ function mapPosition(p){
   return { x: THREE.MathUtils.clamp(x, -19.4, 19.4), z: THREE.MathUtils.clamp(z, -10.8, 11.6) };
 }
 function fromGame(x,y){ return mapPosition({x,y}); }
+// Shared authoring scale: character height ~2.1m, all GLB origins ground-center (Y=0), front = +Z.
+const LOCATIONS={tree:fromGame(190,442),door:fromGame(600,401),smash:fromGame(390,508),scream:fromGame(760,508),desk:fromGame(926,493)};
 
 function treeCluster(x,z,scale=1){
   const g=new THREE.Group(); g.position.set(x,0,z); scene.add(g);
@@ -92,8 +94,8 @@ function buildGround(){
   for(let iz=0;iz<=13;iz++) box(38.2,.02,.05,col('#767d83',1),0,.095,-9.15+iz*1.7);
 }
 function buildStressHouseFallback(){
-  const pos = fromGame(600,360);
-  const g=new THREE.Group(); g.position.set(pos.x,0,pos.z-1.2); scene.add(g);
+  const pos = LOCATIONS.door;
+  const g=new THREE.Group(); g.position.set(pos.x,0,pos.z-5.3); scene.add(g);
   const body=col('#f5efe5',.85), accent=col('#88ab95',.55,.08), wood=col('#8b6140',.76), glass=col('#9ed0dc',.25,.1), roof=col('#55656f',.78), trim=col('#d2a85f',.35,.25);
   box(15.2,4.9,9.8,body,0,2.45,0,g); box(16.0,.22,10.4,accent,0,5.0,0,g);
   // front porch
@@ -141,45 +143,54 @@ function buildScreamBooth(){
   screamPulse = ringMarker(pos,'#c28cff',1.0);
 }
 
+function loadAsset(url, onSuccess, onError){
+  const loader = new GLTFLoader();
+  loader.load(url, gltf => {
+    // Recompute bounding boxes to catch malformed or surprising dimensions.
+    gltf.scene.updateMatrixWorld(true);
+    onSuccess(gltf.scene);
+  },undefined,err=>{console.warn('GLB load failed:', url,err);onError();});
+}
 function loadRecoveryHouse(){
-  const pos = fromGame(600,360);
-  const loader = new GLTFLoader();
-  loader.load('/assets/nha-hoi-phuc-3d.glb', gltf => {
-    const model = gltf.scene;
-    model.position.set(pos.x,0,pos.z-1.2);
-    model.scale.set(1,1,1);
-    model.traverse(obj=>{ if(obj.isMesh){ obj.castShadow=false; obj.receiveShadow=false; } });
+  // House entry staircase is at local Z=+5.6, exactly where the interaction ring sits.
+  const door=LOCATIONS.door;
+  loadAsset('/assets/nha-hoi-phuc-3d.glb?v=6.2.0', model => {
+    model.position.set(door.x,0,door.z-5.6); // align staircase to doorway trigger
     scene.add(model);
-    const sign=textSprite('NHÀ HỒI PHỤC','#2e5b47','#fef1be',42); sign.scale.set(5.4,.96,1); sign.position.set(pos.x,4.55,pos.z+4.3); scene.add(sign);
-    doorGlow = ringMarker(fromGame(600,401),'#fff2a0',1.1);
-  }, undefined, err => { console.warn('Không tải được nha-hoi-phuc-3d.glb, dùng mô hình dự phòng', err); buildStressHouseFallback(); });
+    const sign=textSprite('NHÀ HỒI PHỤC','#2e5b47','#fef1be',42);
+    sign.scale.set(4.6,.86,1);
+    sign.position.set(door.x,4.28,door.z-5.6+3.48);
+    scene.add(sign);
+    doorGlow = ringMarker(door,'#fff2a0',.95);
+  }, ()=>{buildStressHouseFallback(); doorGlow ||= ringMarker(door,'#fff2a0',.95);});
 }
-
 function loadVentDeskModel(){
-  const pos = fromGame(926,493);
-  const loader = new GLTFLoader();
-  loader.load('/assets/ban-xa-buc-3d.glb', gltf => {
-    const model = gltf.scene;
-    model.position.set(pos.x,0,pos.z);
-    model.scale.set(1,1,1);
+  const pos=LOCATIONS.desk;
+  loadAsset('/assets/ban-xa-buc-3d.glb?v=6.2.0',model=>{
+    // Shift the furniture slightly back: the ring is on the walkable side of the chair.
+    model.position.set(pos.x,0,pos.z-.7);
     scene.add(model);
-    const sign=textSprite('BÀN XẢ BỰC', '#71482d', '#fff0c1', 36); sign.scale.set(3.6,.82,1); sign.position.set(pos.x,3.0,pos.z+.2); scene.add(sign);
-    ringMarker(pos,'#ffd98f',1.0);
-  }, undefined, err => { console.warn('Không tải được ban-xa-buc-3d.glb, dùng mô hình dự phòng', err); buildVentDeskFallback(); });
+    const sign=textSprite('BÀN XẢ BỰC','#71482d','#fff0c1',34);
+    sign.scale.set(3.0,.75,1); sign.position.set(pos.x,2.7,pos.z-.7);
+    scene.add(sign);
+    ringMarker(pos,'#ffd98f',.78);
+  },()=>buildVentDeskFallback());
 }
-
 function loadSmashZoneModel(){
-  const pos = fromGame(390,508);
-  const loader = new GLTFLoader();
-  loader.load('/assets/bao-cat-3d.glb', gltf => {
-    const model = gltf.scene;
-    model.position.set(pos.x,0,pos.z);
-    model.scale.set(1,1,1);
-    scene.add(model);
-    smashBag = model;
-    const sign=textSprite('KHU ĐẬP PHÁ', '#8a3e34', '#fff1c9', 36); sign.scale.set(3.6,.82,1); sign.position.set(pos.x,4.4,pos.z); scene.add(sign);
-    smashPulse = ringMarker(pos,'#ffb067',1.1);
-  }, undefined, err => { console.warn('Không tải được bao-cat-3d.glb, dùng mô hình dự phòng', err); buildSmashZoneFallback(); });
+  const pos=LOCATIONS.smash;
+  loadAsset('/assets/bao-cat-3d.glb?v=6.2.0',model=>{
+    model.position.set(pos.x,0,pos.z); scene.add(model);
+    // Only swing the punching bag itself, never the frame, mat, gloves or crates.
+    const pivot=new THREE.Group(); pivot.position.set(0,2.42,0); model.add(pivot);
+    const moving=[];
+    model.traverse(obj=>{ if(obj.isMesh && /^(BagMain|BagTop|BagBottom)_/.test(obj.name)) moving.push(obj); });
+    for(const mesh of moving) pivot.attach(mesh);
+    smashBag=pivot;
+    const sign=textSprite('KHU ĐẬP PHÁ','#8a3e34','#fff1c9',34);
+    sign.scale.set(3.2,.77,1); sign.position.set(pos.x,3.88,pos.z);
+    scene.add(sign);
+    smashPulse=ringMarker(pos,'#ffb067',.9);
+  },()=>buildSmashZoneFallback());
 }
 
 function buildPondAndRelax(){
@@ -199,9 +210,9 @@ function loadKarmaTree(){
   loader.load('/assets/cay-khau-nghiep-3d.glb', gltf => {
     const model = gltf.scene;
     model.position.set(pos.x,0,pos.z);
-    model.scale.set(1.65,1.65,1.65);
+    model.scale.set(.86,.86,.86);
     scene.add(model);
-    const sign=textSprite('CÂY KHẨU NGHIỆP','#6d321e','#ffefbf',38); sign.scale.set(4.2,.9,1); sign.position.set(pos.x,9.25,pos.z+.2); scene.add(sign);
+    const sign=textSprite('CÂY KHẨU NGHIỆP','#6d321e','#ffefbf',38); sign.scale.set(4.2,.9,1); sign.position.set(pos.x,8.5,pos.z+.2); scene.add(sign);
     ringMarker(pos,'#ffdb92',1.15);
   }, undefined, () => {
     // fallback simple tree

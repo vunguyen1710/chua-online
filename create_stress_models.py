@@ -1,182 +1,156 @@
-import os, math
-import numpy as np
-import trimesh
+"""Rebuild properly scaled, Y-up glTF models. 3D units: avatar ≈2.1 m.
+Each model has origin at its ground footprint center; front faces positive Z.
+Use Python 3.13 + trimesh, numpy. Produces valid .glb files for Three.js.
+"""
+from pathlib import Path
+import math, numpy as np, trimesh
 from trimesh.creation import box, cylinder, icosphere
 from trimesh.transformations import rotation_matrix
 
-OUT = '/mnt/data/xastress61/assets'
-os.makedirs(OUT, exist_ok=True)
+ROOT=Path(__file__).parent
+OUT=ROOT/'assets'; OUT.mkdir(exist_ok=True)
 
-def rgba(h, a=255):
-    h = h.lstrip('#')
-    return [int(h[i:i+2],16) for i in (0,2,4)] + [a]
+def rgb(hex_code):
+    h=hex_code.strip('#')
+    return [int(h[i:i+2],16) for i in (0,2,4)]+[255]
 
-def add(scene, mesh, color, name=None):
-    mesh.visual.face_colors = np.tile(rgba(color), (len(mesh.faces),1))
-    scene.add_geometry(mesh, node_name=name)
-    return mesh
+class Builder:
+    def __init__(self): self.scene=trimesh.Scene(); self.counter=0
+    def add(self,mesh,color,name):
+        mesh.visual.face_colors=np.tile(rgb(color),(len(mesh.faces),1))
+        self.counter+=1
+        self.scene.add_geometry(mesh, node_name=f'{name}_{self.counter:03d}', geom_name=f'{name}_{self.counter:03d}')
+        return mesh
+    def cuboid(self,size,pos,color,name='Part',angle=0):
+        mesh=box(extents=size)
+        if angle: mesh.apply_transform(rotation_matrix(angle,[0,1,0]))
+        mesh.apply_translation(pos); return self.add(mesh,color,name)
+    def cyl(self,radius,height,pos,color,name='Part',segments=18):
+        mesh=cylinder(radius=radius,height=height,sections=segments)
+        mesh.apply_transform(rotation_matrix(-math.pi/2,[1,0,0]))
+        mesh.apply_translation(pos); return self.add(mesh,color,name)
+    def ball(self,radius,pos,color,name='Part',scale=(1,1,1),sub=1):
+        mesh=icosphere(subdivisions=sub,radius=radius)
+        mesh.apply_scale(scale); mesh.apply_translation(pos); return self.add(mesh,color,name)
+    def cylinder_taper(self, top_radius,bottom_radius,height,pos,color,name='Part',segments=20):
+        mesh=trimesh.creation.conical_frustum(height=height,radius=bottom_radius,top_radius=top_radius,sections=segments) if hasattr(trimesh.creation,'conical_frustum') else None
+        if mesh is None: return self.cyl(bottom_radius,height,pos,color,name,segments)
+        mesh.apply_transform(rotation_matrix(-math.pi/2,[1,0,0]));mesh.apply_translation(pos)
+        return self.add(mesh,color,name)
+    def roof(self,w,depth,eave_y,rise,center_x,center_z,color,trim='#d6ae7b',name='Roof'):
+        """True gable roof. Ridge runs along Z, front & rear eaves along X."""
+        x=center_x; z=center_z; hw=w/2; hd=depth/2
+        V=np.array([
+            [x-hw,eave_y,z-hd], [x+hw,eave_y,z-hd], [x,eave_y+rise,z-hd],
+            [x-hw,eave_y,z+hd], [x+hw,eave_y,z+hd], [x,eave_y+rise,z+hd],
+        ],float)
+        faces=np.array([[0,2,1],[3,4,5],[0,3,5],[0,5,2],[1,2,5],[1,5,4],[0,1,4],[0,4,3]],dtype=int)
+        self.add(trimesh.Trimesh(vertices=V,faces=faces,process=False),color,name)
+        self.cuboid((w,.11,.12),(x,eave_y+.02,z+hd-.04),trim,name+'FrontEdge')
+        self.cuboid((w,.11,.12),(x,eave_y+.02,z-hd+.04),trim,name+'RearEdge')
+        self.cuboid((.12,.14,depth),(x,eave_y+rise+.045,z),trim,name+'Ridge')
+    def export(self,file):
+        fn=OUT/file;self.scene.export(str(fn));s=trimesh.load(str(fn),force='scene');bounds=s.bounds
+        return {'name':file,'geometries':len(s.geometry),'triangles':sum(len(g.faces) for g in s.geometry.values()),'min':bounds[0].tolist(),'max':bounds[1].tolist(),'size':s.extents.tolist(),'path':str(fn)}
 
-def mk_box(scene,size,pos,color,name=None,rot=None):
-    m = box(extents=size)
-    if rot is not None:
-        m.apply_transform(rot)
-    m.apply_translation(pos)
-    return add(scene,m,color,name)
+# House: 13.8w × 9.7d × 7.1h; front at local Z≈4.15, interaction ring at +4.2
+b=Builder()
+STONE='#c9c3b5';WALL='#ece6dc';MINT='#73978c';ROOF='#526a74';ROOF_HIGHLIGHT='#748b90';WOOD='#845d43';DARK='#49382f';TRIM='#d4ae70';GLASS='#91c3c8';LEAF='#588264';LEAF2='#77a47c';POT='#9e7564';PINK='#e8b6c1'
+b.cuboid((13.5,.42,9.0),(0,.21,-.15),STONE,'Foundation')
+b.cuboid((7.4,.17,2.35),(0,.34,4.42),'#bdb2a1','EntryLanding')
+for i in range(2):
+    b.cuboid((6.1-i*.15,.16,.65),(0,.09+i*.16,5.6-i*.65),'#d9d2c6','EntranceStep')
+b.cuboid((12.2,4.4,7.5),(0,2.6,-.65),WALL,'MainHall')
+# exterior wooden horizontal accents
+for yy in (.58,4.63): b.cuboid((12.35,.16,7.7),(0,yy,-.65),MINT,'FacadeTrim')
+# natural pitched roof at y=4.9, extends in front to z5.0; not intersecting columns
+b.roof(13.65,9.7,4.97,2.04,0,-.1,ROOF,TRIM,'MainRoof')
+# a thin porch awning at lower height in front of door
+b.cuboid((8.1,.18,2.25),(0,3.98,4.05),MINT,'PorchAwning')
+# four aligned columns sitting on porch deck, ending just below awning
+for xx in (-3.1,-1.75,1.75,3.1):
+    b.cyl(.135,3.38,(xx,2.21,4.31),TRIM,'PorchColumn',18)
+    b.cyl(.19,.15,(xx,.59,4.31),STONE,'ColumnFoot')
+    b.cyl(.20,.16,(xx,3.89,4.31),WOOD,'ColumnCap')
+# door at wall FRONT face local Z=3.1 (wall center -0.65 plus half depth 3.75)
+b.cuboid((3.55,3.2,.12),(0,2.1,3.19),DARK,'DoorFrame')
+for xx in (-.87,.87):
+    b.cuboid((1.65,2.85,.075),(xx,2.1,3.31),WOOD,'DoorLeaf')
+    for yy in (1.25,2.1,2.95): b.cuboid((1.46,.045,.028),(xx,yy,3.37),TRIM,'DoorOrnament')
+    b.ball(.055,(-.12 if xx<0 else .12,2.05,3.39),TRIM,'DoorHandle',sub=1)
+# panel signage fixed above entrance not across roof
+b.cuboid((4.15,.65,.16),(0,4.28,3.3),'#2c6658','SignBoard')
+b.cuboid((4.35,.08,.2),(0,4.66,3.32),TRIM,'SignEdge')
+b.cuboid((4.35,.08,.2),(0,3.91,3.32),TRIM,'SignEdge')
+# windows with smaller wooden frames
+for xx in (-4.53,4.53):
+    b.cuboid((2.12,1.7,.13),(xx,2.68,3.15),DARK,'WindowFrame')
+    b.cuboid((1.85,1.43,.04),(xx,2.68,3.23),GLASS,'WindowGlass')
+    b.cuboid((.065,1.45,.045),(xx,2.68,3.27),WOOD,'WindowMullion')
+    b.cuboid((1.85,.06,.045),(xx,2.68,3.27),WOOD,'WindowMullion')
+# side walls low windows
+for xx in (-6.17,6.17):
+    for zz in (-2.2,.65):
+        b.cuboid((.08,1.45,1.52),(xx,2.5,zz),DARK,'SideWindowFrame')
+        b.cuboid((.045,1.18,1.28),(xx+(-.04 if xx<0 else .04),2.5,zz),GLASS,'SideWindowGlass')
+# pots and pleasant garden props
+for xx in (-5.9,5.9):
+    b.cyl(.31,.5,(xx,.69,4.1),POT,'CeramicPot')
+    b.ball(.42,(xx,1.14,4.1),LEAF,'Shrub',scale=(1.0,1.2,.92))
+    for dx,dz in ((-.22,0),(.18,.1),(0,-.15)):
+        b.ball(.13,(xx+dx,1.36,4.1+dz),LEAF2,'ShrubLeaves')
+# small lamps attached to walls
+for xx in (-5.65,5.65):
+    b.cuboid((.16,.63,.22),(xx,3.65,3.3),WOOD,'WallLantern')
+    b.ball(.16,(xx,3.63,3.47),'#f8d18d','WallLanternLight')
+# an entrance mat
+b.cuboid((2.5,.035,1.1),(0,.45,4.72),'#768f7d','WelcomeMat')
+house=b.export('nha-hoi-phuc-3d.glb')
 
-def mk_cyl(scene,r,h,pos,color,name=None,axis='y',sections=24):
-    m = cylinder(radius=r, height=h, sections=sections)
-    if axis=='x':
-        m.apply_transform(rotation_matrix(math.pi/2, [0,0,1]))
-    elif axis=='z':
-        m.apply_transform(rotation_matrix(math.pi/2, [1,0,0]))
-    m.apply_translation(pos)
-    return add(scene,m,color,name)
+# Punching bag: frame 2.7w × 2.4d, bag hangs in frame with independent Bag_* nodes.
+b=Builder()
+DARK='#353c42';METAL='#8a949c';RED='#ca5045';ORANGE='#e5ae72';FLOOR='#343b41';GLOVE='#b44542'
+b.cuboid((3.6,.12,3.1),(0,.06,0),FLOOR,'TrainingMat')
+for xx in (-1.35,1.35):
+    for zz in (-1.06,1.06):
+        b.cyl(.07,3.25,(xx,1.625,zz),METAL,'FramePillar')
+for zz in (-1.06,1.06): b.cuboid((2.8,.12,.14),(0,3.23,zz),METAL,'FrameBeam')
+for xx in (-1.35,1.35): b.cuboid((.14,.12,2.2),(xx,3.23,0),METAL,'FrameBeam')
+b.cuboid((.22,.14,1.0),(0,3.19,0),METAL,'TopCrossbar')
+for xx in (-.2,.2):
+    for zz in (-.2,.2): b.cyl(.017,.48,(xx,2.82,zz),'#d1d5d7','BagChain')
+b.cyl(.43,1.73,(0,1.77,0),RED,'BagMain')
+b.cyl(.45,.11,(0,2.68,0),ORANGE,'BagTop')
+b.cyl(.45,.11,(0,.87,0),ORANGE,'BagBottom')
+for xx in (-.55,.55): b.ball(.20,(xx,.4,1.0),GLOVE,'BoxingGloves',scale=(1.2,1.0,.92))
+b.cuboid((1.0,.26,.68),(1.0,.2,-.8),'#7c6757','StorageBox')
+b.cuboid((1.05,.26,.7),(-.95,.2,-.82),'#8f7662','StorageBox')
+bag=b.export('bao-cat-3d.glb')
 
-def mk_cyl2(scene,r1,r2,h,pos,color,name=None,axis='y',sections=24):
-    m = trimesh.creation.cone(radius=r1, height=h, sections=sections)
-    # use cone? no
+# Desk: top at y~1.0, chair clear of desk; paper + pencil + planter.
+b=Builder()
+DESK='#a3724b';FRAME='#694a33';PAPER='#f4edd9';INK='#c65f50';LAMP='#e9c58c';PLANT='#6b9a65';POT='#a77c67';CHAIR='#866445';METAL='#9ca7ad';
+b.cuboid((2.85,.14,1.22),(0,1.12,0),DESK,'DeskSurface')
+for xx in (-1.16,1.16):
+    for zz in (-.42,.42): b.cuboid((.12,1.02,.12),(xx,.54,zz),FRAME,'DeskLeg')
+b.cuboid((2.35,.09,.12),(0,.53,-.38),FRAME,'SupportRail')
+b.cuboid((1.4,.03,.69),(-.15,1.22,.07),PAPER,'WritingPaper')
+b.cuboid((.8,.03,.035),(-.2,1.28,.31),INK,'Pencil')
+# organizer and desk lamp
+b.cuboid((.33,.16,.31),(-1.06,1.27,-.2),INK,'PenCup')
+b.cyl(.035,.54,(.98,1.43,-.11),METAL,'LampStand')
+b.cuboid((.43,.20,.35),(.98,1.79,-.11),LAMP,'DeskLamp')
+# chair behind desk = positive Z on user's front approach
+b.cuboid((.83,.1,.74),(0,.58,1.25),CHAIR,'ChairSeat')
+for xx in (-.32,.32):
+    for zz in (.98,1.52): b.cuboid((.085,.53,.085),(xx,.27,zz),FRAME,'ChairLeg')
+b.cuboid((.8,.75,.095),(0,1.06,1.58),CHAIR,'ChairBack')
+# plant
+b.cyl(.155,.25,(1.14,1.31,.27),POT,'Pot')
+for dx,dz in ((-.08,0),(.08,.04),(0,-.06)):
+    b.ball(.17,(1.14+dx,1.56,.27+dz),PLANT,'PlantLeaf')
+desk=b.export('ban-xa-buc-3d.glb')
 
-
-def mk_sphere(scene,r,pos,color,name=None,sub=2,scale=None):
-    m = icosphere(subdivisions=sub, radius=r)
-    if scale is not None:
-        m.apply_scale(scale)
-    m.apply_translation(pos)
-    return add(scene,m,color,name)
-
-def prism_roof(scene,width,depth,rise,base_y,center,color,trim=None,name=None):
-    w=width/2; d=depth/2
-    verts=np.array([
-        [-w,base_y,-d],[w,base_y,-d],[0,base_y+rise,-d],
-        [-w,base_y,d],[w,base_y,d],[0,base_y+rise,d],
-    ],float)
-    verts += np.array(center)
-    faces=np.array([[0,1,2],[3,5,4],[0,2,5],[0,5,3],[2,1,4],[2,4,5],[0,3,4],[0,4,1]])
-    m=trimesh.Trimesh(vertices=verts, faces=faces, process=False)
-    add(scene,m,color,name)
-    if trim:
-        mk_box(scene,[width*0.97,0.08,0.18],[center[0],base_y-0.01,center[2]-d+0.04],trim)
-        mk_box(scene,[width*0.97,0.08,0.18],[center[0],base_y-0.01,center[2]+d-0.04],trim)
-        mk_box(scene,[0.16,0.18,depth*0.96],[center[0],base_y+rise+0.05,center[2]],trim)
-
-# 1) Recovery house
-scene = trimesh.Scene()
-WALL = '#f3efe7'; ACC = '#8db09c'; ROOF = '#5d6e75'; WOOD = '#875f3f'; WOOD2 = '#6d4932'; GOLD = '#d6aa63'; STONE='#d4cabd'; GLASS='#9ecfda'; GREEN='#6d9d58'; POT='#9a6e4a'; FLOWER='#efb1c0'
-# base
-mk_box(scene,[16.8,0.45,11.2],[0,0.23,0],STONE,'base')
-mk_box(scene,[8.8,0.22,2.4],[0,0.56,5.4],'#ddd4c7','porch')
-for i in range(3): mk_box(scene,[6.2-i*.4,0.18,1.0],[0,0.12+i*0.18,6.35-i*0.8],'#cfc1ae')
-# main hall
-mk_box(scene,[13.8,4.6,8.8],[0,2.53,0.0],WALL,'hall')
-mk_box(scene,[14.4,0.22,9.4],[0,4.95,0],ACC)
-# side rooms
-mk_box(scene,[3.8,2.9,4.6],[-8.1,1.75,-1.5],WALL,'left_room')
-mk_box(scene,[3.8,2.9,4.6],[8.1,1.75,-1.5],WALL,'right_room')
-# columns and porch beam
-for x in (-3.4,-1.3,1.3,3.4):
-    mk_cyl(scene,0.16,2.9,[x,1.9,4.35],GOLD)
-    mk_cyl(scene,0.24,0.16,[x,0.54,4.35],STONE)
-    mk_cyl(scene,0.24,0.14,[x,3.32,4.35],STONE)
-mk_box(scene,[8.4,0.22,0.36],[0,3.32,4.35],WOOD)
-# doors
-mk_box(scene,[4.6,3.25,0.16],[0,2.1,4.43],WOOD2,'doorframe')
-for x in (-1.15,1.15):
-    mk_box(scene,[1.95,2.95,0.08],[x,2.1,4.52],WOOD)
-    for y in (1.2,2.1,3.0): mk_box(scene,[1.6,0.05,0.03],[x,y,4.56],GOLD)
-    for xx in (-0.48,0,0.48): mk_box(scene,[0.04,2.62,0.03],[x+xx,2.1,4.56],GOLD)
-# windows front
-for x in (-4.8,4.8):
-    mk_box(scene,[2.2,1.8,0.14],[x,2.55,4.45],WOOD2)
-    mk_box(scene,[1.9,1.5,0.05],[x,2.55,4.52],GLASS)
-    mk_box(scene,[0.05,1.5,0.02],[x,2.55,4.54],GOLD)
-    mk_box(scene,[1.9,0.05,0.02],[x,2.55,4.54],GOLD)
-# side windows
-for x in (-6.95,6.95):
-    mk_box(scene,[0.14,1.8,2.3],[x,2.4,-1.0],WOOD2)
-    mk_box(scene,[0.05,1.5,2.0],[x+0.03,2.4,-1.0],GLASS)
-# roof and side awnings
-prism_roof(scene,15.8,10.2,2.15,5.05,[0,0,-0.2],ROOF,GOLD,'roof_main')
-prism_roof(scene,4.9,5.2,1.0,3.15,[-8.1,0,-1.5],ROOF,GOLD,'roof_left')
-prism_roof(scene,4.9,5.2,1.0,3.15,[8.1,0,-1.5],ROOF,GOLD,'roof_right')
-# skylight / decor
-mk_box(scene,[1.0,0.55,4.2],[0,5.9,-0.2],ACC)
-# sign frame
-mk_box(scene,[6.0,0.82,0.2],[0,4.1,4.62],'#2e5b47','sign_plate')
-mk_box(scene,[6.2,0.08,0.24],[0,4.55,4.61],GOLD)
-mk_box(scene,[6.2,0.08,0.24],[0,3.65,4.61],GOLD)
-# planters
-for x in (-6.9,-5.6,5.6,6.9):
-    mk_cyl(scene,0.28,0.46,[x,0.78,5.2],POT)
-    mk_sphere(scene,0.22,[x,1.1,5.2],GREEN,sub=1)
-    for dx,dz in ((-.1,0),(.1,0),(0,.08),(0,-.08)): mk_sphere(scene,0.09,[x+dx,1.25,5.2+dz],FLOWER,sub=1)
-# lanterns
-for x in (-4.4,4.4):
-    mk_cyl(scene,0.04,0.45,[x,4.05,4.75],GOLD)
-    mk_cyl(scene,0.22,0.52,[x,3.55,4.75],'#ce4a3d',sections=18)
-# benches outside sides
-for x in (-9.8,9.8):
-    mk_box(scene,[2.1,0.14,0.52],[x,0.82,3.7],WOOD)
-    mk_box(scene,[2.0,0.12,0.18],[x,1.22,3.48],WOOD)
-    for dx in (-0.85,0.85):
-        for dz in (-0.15,0.15): mk_box(scene,[0.1,0.78,0.1],[x+dx,0.39,3.7+dz],WOOD2)
-scene.export(os.path.join(OUT,'nha-hoi-phuc-3d.glb'))
-
-# 2) Punching bag zone
-scene = trimesh.Scene()
-DARK='#33383d'; METAL='#7f8a92'; RED='#c9483a'; ORANGE='#da8c4d'; MAT='#2f3940'; WOOD='#806145'; BLUE='#5a7f93';
-mk_box(scene,[5.6,0.18,5.6],[0,0.09,0],MAT,'mat')
-# steel frame arch
-for x,z in [(-1.9,-1.9),(1.9,-1.9),(-1.9,1.9),(1.9,1.9)]: mk_cyl(scene,0.12,3.4,[x,1.7,z],METAL)
-for z in (-1.9,1.9): mk_box(scene,[4.1,0.14,0.14],[0,3.25,z],METAL)
-for x in (-1.9,1.9): mk_box(scene,[0.14,0.14,4.1],[x,3.25,0],METAL)
-mk_box(scene,[0.16,0.16,1.2],[0,3.15,0],METAL)
-# bag and chains
-for x,z in [(-0.18,-0.18),(0.18,-0.18),(-0.18,0.18),(0.18,0.18)]: mk_cyl(scene,0.02,0.55,[x,2.8,z],'#d3d7dc')
-bag = cylinder(radius=0.52,height=1.95,sections=28); bag.apply_translation([0,1.82,0]); add(scene,bag,RED,'bag')
-mk_box(scene,[0.65,0.12,0.65],[0,2.83,0],ORANGE)
-mk_box(scene,[0.62,0.08,0.62],[0,0.84,0],ORANGE)
-# side props
-mk_box(scene,[1.1,0.18,0.9],[-1.8,0.28,1.7],WOOD,'crate1')
-mk_box(scene,[0.85,0.48,0.65],[1.55,0.24,1.65],WOOD,'crate2')
-# gloves
-for s in (-1,1):
-    mk_sphere(scene,0.22,[1.8+s*0.18,0.72,-1.35],RED,sub=2,scale=[1.05,1.0,1.2])
-    mk_box(scene,[0.14,0.18,0.12],[1.8+s*0.18,0.5,-1.35],'#f2d59f')
-# sign board
-mk_box(scene,[2.7,0.72,0.18],[0,4.3,0],'#8a3e34','sign')
-mk_box(scene,[2.9,0.08,0.22],[0,4.72,0],ORANGE)
-scene.export(os.path.join(OUT,'bao-cat-3d.glb'))
-
-# 3) Vent desk
-scene = trimesh.Scene()
-WOOD='#8b5f3b'; WOOD2='#6d4a30'; PAPER='#eee4c5'; GREEN='#5d8f54'; POT='#997050'; METAL='#9eabb2'; RED='#d26c5f'; GOLD='#d8b16e'; CREAM='#f8efcf'
-mk_box(scene,[3.6,0.18,1.6],[0,1.2,0],WOOD,'tabletop')
-for x in (-1.45,1.45):
-    for z in (-0.55,0.55): mk_box(scene,[0.15,1.05,0.15],[x,0.52,z],WOOD2)
-mk_box(scene,[2.1,0.12,0.85],[0,1.38,0],PAPER,'paperpad')
-mk_box(scene,[0.95,0.06,0.08],[0,1.52,0.26],RED)
-# chair
-mk_box(scene,[1.1,0.14,0.92],[0,0.66,-1.15],WOOD)
-for x in (-0.42,0.42):
-    for z in (-1.45,-0.85): mk_box(scene,[0.1,0.6,0.1],[x,0.3,z],WOOD2)
-mk_box(scene,[1.0,0.9,0.12],[0,1.2,-1.54],WOOD)
-# lamp
-mk_cyl(scene,0.04,0.55,[1.05,1.55,0.2],METAL)
-mk_box(scene,[0.5,0.08,0.08],[1.22,1.78,0.2],METAL)
-mk_box(scene,[0.36,0.22,0.26],[1.42,1.68,0.2],CREAM)
-# note tray / tissue / plant
-mk_box(scene,[0.55,0.16,0.38],[-1.0,1.34,0.22],GOLD)
-mk_box(scene,[0.42,0.28,0.32],[-1.05,1.42,-0.28],CREAM)
-mk_cyl(scene,0.18,0.3,[1.18,1.35,-0.35],POT)
-for dx,dz in ((0,0),(0.1,0.08),(-0.08,0.04),(0.06,-0.05)): mk_sphere(scene,0.16,[1.18+dx,1.6, -0.35+dz],GREEN,sub=1)
-# side notice stand
-mk_box(scene,[1.8,0.08,0.92],[0,2.55,0.1],'#71482d','header')
-mk_box(scene,[0.12,1.0,0.12],[-0.78,2.0,0.1],WOOD2); mk_box(scene,[0.12,1.0,0.12],[0.78,2.0,0.1],WOOD2)
-scene.export(os.path.join(OUT,'ban-xa-buc-3d.glb'))
-
-# verify sizes
-for fn in ['nha-hoi-phuc-3d.glb','bao-cat-3d.glb','ban-xa-buc-3d.glb']:
-    path=os.path.join(OUT,fn)
-    loaded=trimesh.load(path, force='scene')
-    faces=sum(len(g.faces) for g in loaded.geometry.values())
-    print(fn, 'geometry', len(loaded.geometry), 'triangles', faces)
+import json
+(OUT/'stress-model-metrics.json').write_text(json.dumps({'model_origin':'center at ground (Y=0), front toward +Z','assets':[house,bag,desk]},ensure_ascii=False,indent=2),encoding='utf-8')
+for a in [house,bag,desk]: print(a['name'],'size',[round(x,2) for x in a['size']],'triangles',a['triangles'])

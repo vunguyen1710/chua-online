@@ -1,8 +1,8 @@
 {
-  "name": "chua-online-multiplayer",
-  "version": "4.0.1",
+  "name": "xa-stress-online-multiplayer",
+  "version": "6.2.0",
   "private": true,
-  "description": "Mini game chua online nhieu nguoi choi thoi gian thuc",
+  "description": "Khu xa stress 3D nhieu nguoi choi, cay khau nghiep va nha hoi phuc",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
