@@ -58,3 +58,12 @@ Thay các file `game.js`, `inside3d.js`, `index.html`, `package.json`, `README.m
 - Trên PC: WASD + E; trên điện thoại dùng joystick + nút tương tác, vuốt ở vùng 3D để xoay camera.
 
 **Lưu ý:** Three.js chạy bằng WebGL. Số lượng 100 người đồng thời chưa được kiểm thử tải thực tế; hiệu năng phụ thuộc thiết bị và hạ tầng Render.
+
+## Chùa Online 5.5 - Mô hình Cây Khẩu Nghiệp 3D thật
+- File GLB độc lập: `assets/cay-khau-nghiep-3d.glb` (mô hình hình học thực, không phải hình PNG).
+- `outside3d.js` nạp GLB qua `GLTFLoader` tại tọa độ tương tác Cây Khẩu Nghiệp (190, 442).
+- `index.html` thêm import map cho Three.js và `server.js` phục vụ `/vendor/three/addons/` để loader hoạt động.
+- Khi tải mô hình lỗi, game hiển thị cây hình học cũ để không bị trống khu vực.
+- Mô hình có thân, rễ, cành, các cụm lá, dây, thẻ treo và đèn lồng; có thể mở/chỉnh sửa bằng Blender.
+- Hiệu ứng tương tác (bấm E để đọc/viết lời khẩu nghiệp) vẫn do `game.js` xử lý; lưu lời trên máy chủ như bản trước.
+- Để cập nhật lên Render, upload **toàn bộ project**, đặc biệt file GLB và `server.js`, `index.html`, `outside3d.js`.

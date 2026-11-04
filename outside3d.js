@@ -1,4 +1,5 @@
 import * as THREE from '/vendor/three/three.module.js';
+import { GLTFLoader } from '/vendor/three/addons/loaders/GLTFLoader.js';
 
 const host = document.getElementById('outside3d');
 let renderer, scene, camera, avatar, entered = false;
@@ -339,7 +340,25 @@ function buildScene(){
   const treePoint=mapPosition({x:190,y:442});
   const deskPoint=mapPosition({x:926,y:493});
   const doorPoint=mapPosition({x:600,y:401});
-  buildKarmaTree(treePoint.x,treePoint.z);
+  // Load the genuine GLB 3D mesh for the Karma Tree. All geometry is real 3D, not a billboard.
+  const modelLoader = new GLTFLoader();
+  modelLoader.load('/assets/cay-khau-nghiep-3d.glb', gltf => {
+    const model = gltf.scene;
+    model.position.set(treePoint.x, 0, treePoint.z);
+    model.name = 'CayKhauNghiepGLB';
+    // Keep the tree's local origin at the interaction ring, matching game.js (190, 442).
+    model.traverse(child => {
+      if(child.isMesh){ child.frustumCulled = true; child.castShadow = false; child.receiveShadow = false; }
+    });
+    scene.add(model);
+    // Visual emphasis, using inexpensive local lighting.
+    const warmLight = new THREE.PointLight('#ffd697', 1.5, 13);
+    warmLight.position.set(treePoint.x, 5.9, treePoint.z + 1.8);
+    scene.add(warmLight);
+  }, undefined, error => {
+    console.warn('Không tải được cây .glb, dùng mô hình dự phòng:', error);
+    buildKarmaTree(treePoint.x,treePoint.z);
+  });
   // Noticeable ground markers for the interaction points.
   function marker(x,z,color){
     const m=new THREE.Mesh(new THREE.RingGeometry(.85,1.05,48),new THREE.MeshBasicMaterial({color,transparent:true,opacity:.62,side:THREE.DoubleSide,depthWrite:false}));

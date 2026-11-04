@@ -81,6 +81,7 @@ setInterval(()=>{const cutoff=Date.now()-60000;for(const [key,t] of noteRate)if(
 app.get('/health', (_,res)=>res.json({status:'ok',online:players.size}));
 app.get('/', (_,res)=>res.sendFile(path.join(__dirname,'index.html')));
 for (const file of ['index.html','style.css','game.js']) app.get('/'+file, (_,res)=>res.sendFile(path.join(__dirname,file)));
+app.use('/vendor/three/addons', express.static(path.join(__dirname,'node_modules','three','examples','jsm'), { maxAge:'7d' }));
 app.use('/vendor/three', express.static(path.join(__dirname,'node_modules','three','build'), { maxAge:'7d' }));
 app.get('/inside3d.js', (_,res)=>res.sendFile(path.join(__dirname,'inside3d.js')));
 app.get('/outside3d.js', (_,res)=>res.sendFile(path.join(__dirname,'outside3d.js')));
