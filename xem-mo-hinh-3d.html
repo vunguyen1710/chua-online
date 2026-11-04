@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="vi">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Xem mô hình Thung lũng Trôi Sông v7.1</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;font-family:system-ui,Arial,sans-serif;background:#132923;color:#fff;overflow:hidden}canvas{display:block}.panel{position:absolute;top:16px;left:16px;background:#17332ee8;border:1px solid #58877b;padding:16px 18px;border-radius:14px;z-index:9;max-width:340px;box-shadow:0 5px 20px #0007}.panel h1{font-size:20px;margin:0 0 8px}.panel p{margin:6px 0;font-size:13px;color:#e2f3e8}input[type=file]{max-width:275px}button{padding:9px 12px;border:0;border-radius:8px;background:#c6ebdf;color:#11342a;font-weight:700;cursor:pointer}.row{display:flex;gap:8px;margin:10px 0;flex-wrap:wrap}.status{font-size:12px;color:#ffdda5}.small{font-size:11px;opacity:.84}</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.1/examples/jsm/"}}</script>
+</head><body>
+<div class="panel">
+<h1>🌊 Thung Lũng Trôi Sông v7.1</h1>
+<p>Mô hình độc lập: núi 3D · sông uốn khúc khép kín · mặt nước 3D · bờ sông và bến gỗ</p>
+<div class="row"><button id="bird">Nhìn từ trên</button><button id="angle">Góc nghiêng</button><button id="reset">Đặt lại camera</button></div>
+<p>Chọn file mô hình <strong>thung-lung-song-uon-khuc-v71.glb</strong> nếu không tự tải:</p>
+<input id="pick" type="file" accept=".glb,model/gltf-binary"/>
+<p class="status" id="status">Đang tải thư viện 3D...</p>
+<p class="small">Giữ chuột trái để xoay · Chuột phải để kéo · Lăn chuột để phóng to. Cần mạng khi mở HTML để tải Three.js.</p>
+</div>
+<script type="module">
+import * as THREE from 'three';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
+const status=document.getElementById('status');
+const scene=new THREE.Scene();scene.background=new THREE.Color('#c9e6ed');scene.fog=new THREE.Fog('#c9e6ed',380,720);
+const camera=new THREE.PerspectiveCamera(52,innerWidth/innerHeight,.1,1000);camera.position.set(230,220,250);
+const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.25;document.body.appendChild(renderer.domElement);
+scene.add(new THREE.HemisphereLight('#fffdf0','#62876f',2.25));const sun=new THREE.DirectionalLight('#fff8e4',3);sun.position.set(-110,160,90);scene.add(sun);
+const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.target.set(0,15,0);controls.maxDistance=680;controls.minDistance=16;controls.update();
+let model=null;
+function loadUrl(url){status.textContent='Đang đọc mô hình 3D...';const loader=new GLTFLoader();loader.load(url,gl=>{if(model)scene.remove(model);model=gl.scene;scene.add(model);status.textContent='✓ Đã tải đầy đủ núi, sông, nước, cây và bến. Nhấn chuột để xoay.';},undefined,e=>{console.error(e);status.textContent='Không tự tải được vì trình duyệt chặn file cục bộ. Hãy chọn file .glb bên trên.';});}
+const file=document.getElementById('pick');file.onchange=()=>{if(!file.files?.[0])return;const url=URL.createObjectURL(file.files[0]);loadUrl(url);};
+const setCam=(x,y,z)=>{camera.position.set(x,y,z);controls.target.set(0,14,0);controls.update();};
+document.getElementById('bird').onclick=()=>setCam(0,445,0.01);
+document.getElementById('angle').onclick=()=>setCam(240,210,235);
+document.getElementById('reset').onclick=()=>setCam(230,220,250);
+window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
+(function frame(){requestAnimationFrame(frame);controls.update();renderer.render(scene,camera)})();
+loadUrl('./thung-lung-song-uon-khuc-v71.glb');
+</script></body></html>
