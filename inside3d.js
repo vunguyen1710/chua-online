@@ -1,4 +1,4 @@
-// Chùa Online 3.7 — WebGL shrine with rotatable camera, meditation pads and floating virtue gain popups.
+// Chùa Online 4.0 — WebGL shrine with mobile audio, improved shrine, 3D sign, exit door, and 3D +1 virtue popups.
 import * as THREE from '/vendor/three/three.module.js';
 
 const host = document.getElementById('inside3d');
@@ -46,6 +46,23 @@ function textSprite(text, bg = '#fff0ce', fg = '#493321', size = 64) {
   return sprite;
 }
 
+function makePlusOne3D() {
+  const g = new THREE.Group();
+  const mat = new THREE.MeshStandardMaterial({ color: '#ffe27f', emissive: '#c99423', emissiveIntensity: .95, roughness: .28, metalness: .62, transparent: true, opacity: 1 });
+  const edge = new THREE.MeshStandardMaterial({ color: '#fff6c6', emissive: '#f0c766', emissiveIntensity: .35, roughness: .2, metalness: .3, transparent: true, opacity: 1 });
+  const parts=[];
+  const addBox=(w,h,d,x,y,z,material=mat)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),material);m.position.set(x,y,z);g.add(m);parts.push(m);return m;};
+  // plus sign
+  addBox(.16,.62,.16,-.34,.05,0); addBox(.5,.16,.16,-.34,.05,0);
+  // numeral 1
+  addBox(.16,.78,.16,.16,.06,0); addBox(.36,.12,.16,.07,-.29,0); addBox(.24,.12,.16,.08,.46,0,edge);
+  // soft glow disc
+  const halo = new THREE.Mesh(new THREE.CylinderGeometry(.58,.58,.03,24), new THREE.MeshBasicMaterial({color:'#ffe794',transparent:true,opacity:.22}));
+  halo.rotation.x = -Math.PI/2; halo.position.set(-.06,-.42,0); g.add(halo); parts.push(halo);
+  g.userData.fadeParts=parts;
+  return g;
+}
+
 function pillar(x, z) {
   const main=cyl(.46,.48,5.5,red.clone(),x,2.75,z);
   const bottom=cyl(.61,.61,.26,gold.clone(),x,.26,z);
@@ -67,19 +84,19 @@ function makeLotus(x, y, z, s = .7) {
   return center;
 }
 function makeStatue() {
-  const g = new THREE.Group(); g.position.set(0, 3.55, -13.6); scene.add(g);
-  cyl(1.16, 1.22, .38, gold, 0, 0, 0, g); makeLotus(0, .37, 0, 2.7);
-  const body = cyl(.46, .88, 1.75, ivory, 0, 1.42, 0, g); body.rotation.z = .02;
-  sphere(.51, ivory, 0, 2.37, 0, g).scale.set(.75, 1.15, .72);
-  const hair = col('#1d211e'); sphere(.39, hair, 0, 2.74, -.05, g).scale.set(.91, .52, .9);
-  cyl(.2, .3, .26, gold, 0, 3.08, 0, g); sphere(.14, paleGold, 0, 3.29, 0, g);
+  const g = new THREE.Group(); g.position.set(0, 1.62, -13.55); scene.add(g);
+  cyl(1.28, 1.42, .44, gold, 0, 0, 0, g); makeLotus(0, .45, 0, 2.9);
+  const body = cyl(.58, .96, 2.05, ivory, 0, 1.72, 0, g); body.rotation.z = .02;
+  sphere(.56, ivory, 0, 2.98, 0, g).scale.set(.78, 1.18, .74);
+  const hair = col('#1d211e'); sphere(.42, hair, 0, 3.36, -.05, g).scale.set(.91, .56, .9);
+  cyl(.2, .3, .28, gold, 0, 3.73, 0, g); sphere(.15, paleGold, 0, 3.95, 0, g);
   for (const side of [-1, 1]) {
-    const arm = cyl(.14, .2, 1.08, ivory, side * .48, 1.73, .15, g); arm.rotation.z = side * .65;
-    sphere(.17, ivory, side * .81, 1.25, .31, g);
+    const arm = cyl(.14, .2, 1.16, ivory, side * .54, 2.1, .18, g); arm.rotation.z = side * .62;
+    sphere(.17, ivory, side * .86, 1.58, .33, g);
   }
-  const halo = new THREE.Mesh(new THREE.TorusGeometry(.9, .09, 12, 66), new THREE.MeshStandardMaterial({ color: '#ffe3a4', emissive: '#ce922e', emissiveIntensity: 1.6, metalness: .5 }));
-  halo.position.set(0, 2.45, -.32); g.add(halo);
-  const light = new THREE.PointLight('#eec977', 16, 10); light.position.set(0, 2.7, -.2); g.add(light);
+  const halo = new THREE.Mesh(new THREE.TorusGeometry(1.02, .1, 12, 66), new THREE.MeshStandardMaterial({ color: '#ffe3a4', emissive: '#ce922e', emissiveIntensity: 1.6, metalness: .5 }));
+  halo.position.set(0, 3.02, -.34); g.add(halo);
+  const light = new THREE.PointLight('#eec977', 18, 11); light.position.set(0, 3.25, -.2); g.add(light);
   return g;
 }
 function createAuraRing() {
@@ -111,7 +128,7 @@ function assignBubble(g, text) {
 function assignLabelIfChanged(g, name) { if (g.userData.lastName === name) return; g.userData.lastName = name; assignLabel(g, name); }
 function mapPosition(p) { return { x: THREE.MathUtils.clamp((p.x - 600) / 46, -11.8, 11.8), z: THREE.MathUtils.clamp((p.y - 570) / 21, -7.6, 9.2) }; }
 
-const meditationPads2D = [{"x":315,"y":505},{"x":430,"y":505},{"x":770,"y":505},{"x":885,"y":505},{"x":315,"y":591},{"x":430,"y":591},{"x":770,"y":591},{"x":885,"y":591},{"x":315,"y":677},{"x":430,"y":677},{"x":770,"y":677},{"x":885,"y":677}];
+const meditationPads2D = [{"x":255,"y":500},{"x":405,"y":500},{"x":795,"y":500},{"x":945,"y":500},{"x":255,"y":600},{"x":405,"y":600},{"x":795,"y":600},{"x":945,"y":600},{"x":255,"y":700},{"x":405,"y":700},{"x":795,"y":700},{"x":945,"y":700}];
 const meditationPads3D = meditationPads2D.map(mapPosition);
 
 // Detailed Vietnamese folk ornamental wall panels and open wooden lattice windows.
@@ -193,13 +210,36 @@ function decorateAltar() {
     makeLotus(x,1.04,-11.2,.47);
     box(.08,.12,.12,trim,x,1.48,-11.2);
   }
-  // Engraved red/gold horizontal bands and framed plaque.
+  // Engraved red/gold horizontal bands and framed plaque placed higher so it does not cover the statue.
   box(10.6,.23,.19,trim,0,3.02,-18.7);
-  const plaque=box(5.4,1.0,.2,lacquer,0,5.6,-18.6);
-  box(5.65,.07,.25,trim,0,6.13,-18.5);
-  box(5.65,.07,.25,trim,0,5.08,-18.5);
-  const title=textSprite('ĐIỆN QUAN ÂM','#64251d','#ffe6a1',46);
-  title.scale.set(5.25,1.12,1);title.position.set(0,5.63,-18.44);scene.add(title);
+  const plaque=box(6.2,1.18,.42,lacquer,0,6.72,-18.92);
+  box(6.55,.10,.47,trim,0,7.37,-18.74);
+  box(6.55,.10,.47,trim,0,6.07,-18.74);
+  box(.12,1.42,.18,trim,-2.6,6.72,-18.68);
+  box(.12,1.42,.18,trim,2.6,6.72,-18.68);
+  const title=textSprite('ĐIỆN QUAN ÂM','#64251d','#ffe6a1',44);
+  title.scale.set(5.55,1.18,1);title.position.set(0,6.74,-18.66);scene.add(title);
+}
+
+
+function buildExitDoor() {
+  const frame=col('#6c2c1d',.52), trim=col('#dfb35e',.28,.6), panel=col('#87462c',.58), brass=col('#ddb45f',.32,.55);
+  // Front doorway looking back to the outer courtyard.
+  box(7.8,.24,.42,trim,0,5.3,13.2);
+  box(8.2,.32,.58,frame,0,5.55,13.15);
+  box(.38,4.9,.52,frame,-3.9,2.65,13.1); box(.38,4.9,.52,frame,3.9,2.65,13.1);
+  box(2.3,4.35,.16,panel,-1.42,2.35,13.0); box(2.3,4.35,.16,panel,1.42,2.35,13.0);
+  for(const side of [-1,1]){
+    for(let i=-2;i<=2;i++) box(.08,3.7,.04,trim,side*1.42,2.35,13.09+i*.42);
+    for(const y of [1.1,2.35,3.6]) box(2.18,.07,.04,trim,side*1.42,y,13.09);
+    sphere(.09, brass, side*.34, 2.35, 12.88);
+  }
+  // Doors opened outward leaving visible passage.
+  const leafL = new THREE.Group(); scene.add(leafL); leafL.position.set(-1.2,0,12.82);
+  const leafR = new THREE.Group(); scene.add(leafR); leafR.position.set(1.2,0,12.82);
+  const dl=box(2.05,4.0,.13,panel,0,2.2,0,leafL); const dr=box(2.05,4.0,.13,panel,0,2.2,0,leafR);
+  leafL.rotation.y = -0.95; leafR.rotation.y = 0.95;
+  const exitText=textSprite('LỐI RA SÂN','#6a281d','#ffe7af',38); exitText.scale.set(3.1,.78,1); exitText.position.set(0,4.88,13.02); scene.add(exitText);
 }
 
 function setupCameraControls() {
@@ -264,7 +304,9 @@ function setup() {
   for (let i = -3; i <= 3; i++) { const stick = cyl(.019, .019, .8, red, i * .15, 2.65, -11.8); stick.rotation.z = .035 * i; }
   const altarGlow = new THREE.PointLight('#efb04d', 12, 12); altarGlow.position.set(0, 3, -11.5); scene.add(altarGlow);
   for (const x of [-2.5, 2.5]) { cyl(.09, .09, 1.1, gold, x, 2.35, -10.2); sphere(.19, new THREE.MeshStandardMaterial({ color: '#ffc76e', emissive: '#ea9c39', emissiveIntensity: 2 }), x, 2.97, -10.2); }
+  decorateAltar();
   makeStatue();
+  buildExitDoor();
   makeFolkWalls();
   decorateAltar();
 
@@ -352,11 +394,11 @@ function updateGroupPose(group, isMeditating, dt, timeSeed = 0) {
 function spawnVirtuePopup(amount = 1) {
   if (!avatar || !scene) return;
   for (let i = 0; i < amount; i++) {
-    const sprite = textSprite('+1 tích đức', '#fff7cd', '#6f5b1d', 44);
-    sprite.position.set(avatar.position.x, 3.25, avatar.position.z);
-    sprite.scale.set(2.5, .65, 1);
-    scene.add(sprite);
-    virtuePopups.push({ sprite, life: 0, startX: avatar.position.x + (Math.random() - .5) * .35, startZ: avatar.position.z });
+    const popup = makePlusOne3D();
+    popup.position.set(avatar.position.x + (Math.random() - .5) * .2, 3.1, avatar.position.z);
+    popup.rotation.y = -cameraYaw;
+    scene.add(popup);
+    virtuePopups.push({ popup, life: 0, startX: popup.position.x, startZ: avatar.position.z });
   }
 }
 
@@ -397,11 +439,12 @@ function loop(now) {
   for (const p of peers.values()) updateGroupPose(p.group, p.meditating === true, dt, p.group.position.x || 0);
   for (let i = virtuePopups.length - 1; i >= 0; i--) {
     const pop = virtuePopups[i]; pop.life += dt;
-    const t = pop.life / 1.25;
-    if (t >= 1) { scene.remove(pop.sprite); virtuePopups.splice(i, 1); continue; }
-    pop.sprite.position.set(pop.startX, 3.2 + t * 1.7, pop.startZ - t * .35);
-    pop.sprite.material.opacity = 1 - t;
-    const s = 2.5 + Math.sin(t * Math.PI) * .45; pop.sprite.scale.set(s, .65 + Math.sin(t * Math.PI) * .12, 1);
+    const t = pop.life / 1.2;
+    if (t >= 1) { scene.remove(pop.popup); virtuePopups.splice(i, 1); continue; }
+    pop.popup.position.set(pop.startX, 3.15 + t * 1.4, pop.startZ - t * .18);
+    pop.popup.rotation.y = -cameraYaw;
+    const s = 1 + Math.sin(t * Math.PI) * .18; pop.popup.scale.setScalar(s);
+    for(const part of (pop.popup.userData.fadeParts||[])){ if(part.material) part.material.opacity = 1 - t; }
   }
   renderer.render(scene, camera);
 }
@@ -414,7 +457,7 @@ window.temple3D = {
   },
   exit() {
     host.classList.add('hidden'); host.style.pointerEvents = 'none'; entered = false; peers.forEach(x => scene.remove(x.group)); peers.clear();
-    for (const p of virtuePopups) scene.remove(p.sprite); virtuePopups = [];
+    for (const p of virtuePopups) scene.remove(p.popup); virtuePopups = [];
   },
   sync({ player, others, name, bubble }) {
     if (!entered || !scene || !avatar) return;

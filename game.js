@@ -97,14 +97,15 @@
     if(myBubble?.until>performance.now())wrapBubble(myBubble.text,state.player.x,state.player.y-102);
     if(joined) {rounded(state.player.x-45,state.player.y+16,90,21,9);ctx.fillStyle='#624728e8';ctx.fill();text(nickname,state.player.x,state.player.y+27,11,'#fff1c9','center','sans-serif','700');}
   }
-  function startJoin() {
+  async function startJoin() {
     const n=safeName($('nameInput').value);if(n.length<2){toast('Tên cần ít nhất 2 ký tự');return;}
+    await unlockAudio();
     nickname=n;joined=true;state.locked=false;$('joinModal').classList.add('hidden');
     try{localStorage.setItem('chuaonline_name',n)}catch(_){}
     if(socket?.connected)socket.emit('join',{name:n});sendPosition(true);
     toast('Chào mừng '+n+'! Hãy thử trò chuyện với mọi người 💬');
   }
-  $('joinBtn').addEventListener('click',startJoin);
+  $('joinBtn').addEventListener('click',()=>{startJoin()});
   $('nameInput').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();startJoin()}});
   try{$('nameInput').value=localStorage.getItem('chuaonline_name')||''}catch(_){}
   $('chatForm').addEventListener('submit',e=>{
@@ -129,12 +130,12 @@
     'Hôm nay gửi muộn phiền vào gió, ngày mai đón bình an vào nhà.'
   ];
   const rand = (a,b)=> a+Math.random()*(b-a);
-const MEDITATION_SPOTS = [{"x":315,"y":505},{"x":430,"y":505},{"x":770,"y":505},{"x":885,"y":505},{"x":315,"y":591},{"x":430,"y":591},{"x":770,"y":591},{"x":885,"y":591},{"x":315,"y":677},{"x":430,"y":677},{"x":770,"y":677},{"x":885,"y":677}];
+const MEDITATION_SPOTS = [{"x":255,"y":500},{"x":405,"y":500},{"x":795,"y":500},{"x":945,"y":500},{"x":255,"y":600},{"x":405,"y":600},{"x":795,"y":600},{"x":945,"y":600},{"x":255,"y":700},{"x":405,"y":700},{"x":795,"y":700},{"x":945,"y":700}];
   function nearestMeditationSpot(){
     if(state.scene!=='inside') return null;
     // Never snap to the first overlapping pad: pick the closest, with a tight interaction radius.
     const ranked=MEDITATION_SPOTS.map(spot=>({spot,d:Math.hypot(state.player.x-spot.x,state.player.y-spot.y)})).sort((a,b)=>a.d-b.d);
-    return ranked[0] && ranked[0].d<=43 ? ranked[0].spot : null;
+    return ranked[0] && ranked[0].d<=36 ? ranked[0].spot : null;
   }
   function setVirtue(value){ state.virtue=Math.max(0,Math.floor(value)); $('virtueCount').textContent=String(state.virtue); try{localStorage.setItem('chuaonline_virtue',String(state.virtue))}catch(_){} }
   const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
@@ -342,7 +343,7 @@ const MEDITATION_SPOTS = [{"x":315,"y":505},{"x":430,"y":505},{"x":770,"y":505},
     if(state.scene==='inside'&&state.meditationSpot){state.meditating=true;state.meditateClock=0;state.player.x=state.meditationSpot.x;state.player.y=state.meditationSpot.y;toast('🪷 Bạn đang ngồi thiền... mỗi giây cộng 1 tích đức. Vuốt để xoay góc nhìn.');updateAction();sendPosition(true);tone(560,.25);return;}
     if(state.scene==='inside'&&state.ritual===1&&Math.hypot(state.player.x-600,state.player.y-460)<105){modal('offeringModal',true);tone(720)}
   }
-  $('actionBtn').addEventListener('click',interact);
+  $('actionBtn').addEventListener('click',async()=>{await unlockAudio();interact();});
   $('helpBtn').addEventListener('click',()=>modal('helpModal',true));
   document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',()=>modal(b.dataset.close,false)));
   $('prayerInput').addEventListener('input',()=>{$('prayerCharCount').textContent=$('prayerInput').value.length+'/400'});
@@ -381,7 +382,7 @@ const MEDITATION_SPOTS = [{"x":315,"y":505},{"x":430,"y":505},{"x":770,"y":505},
   document.addEventListener('fullscreenchange',()=>{
     if(fullscreenBtn) fullscreenBtn.title=document.fullscreenElement?'Thoát toàn màn hình':'Toàn màn hình';
   });
-  $('soundBtn').addEventListener('click',()=>{state.sound=!state.sound;try{localStorage.setItem('chuaonline_audio',state.sound?'on':'off')}catch(_){}$('soundBtn').textContent=state.sound?'♫':'♪';$('soundBtn').title=state.sound?'Tắt âm thanh và nhạc thiền':'Bật âm thanh và nhạc thiền';syncShrineMusic();tone(740,.24);toast(state.sound?'Đã bật nhạc thiền và âm thanh ✨':'Đã tắt nhạc thiền và âm thanh')});
+  $('soundBtn').addEventListener('click',async()=>{await unlockAudio();state.sound=!state.sound;try{localStorage.setItem('chuaonline_audio',state.sound?'on':'off')}catch(_){}$('soundBtn').textContent=state.sound?'♫':'♪';$('soundBtn').title=state.sound?'Tắt âm thanh và nhạc thiền':'Bật âm thanh và nhạc thiền';syncShrineMusic();tone(740,.24);toast(state.sound?'Đã bật nhạc thiền và âm thanh ✨':'Đã tắt nhạc thiền và âm thanh')});
   document.addEventListener('keydown',e=>{const key=e.key.toLowerCase();if(document.activeElement=== $('karmaInput')||document.activeElement=== $('prayerInput')||document.activeElement===$('chatInput')||document.activeElement===$('nameInput'))return;if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(key))e.preventDefault();if(e.key==='Escape'){for(const id of ['letterModal','karmaWriteModal','treeModal','readNoteModal','blessingModal','helpModal']){if(!$(id).classList.contains('hidden')){if(id==='blessingModal')return;modal(id,false);return}}}if(state.locked)return;if(key==='e'&&!e.repeat){interact();return}state.keys.add(key)});
   document.addEventListener('keyup',e=>state.keys.delete(e.key.toLowerCase()));window.addEventListener('blur',()=>state.keys.clear());
   // Real analog virtual joystick: one pointer at a time, independent of screen aspect ratio.
