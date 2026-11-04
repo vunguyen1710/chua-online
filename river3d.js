@@ -4,7 +4,7 @@ import { GLTFLoader } from '/vendor/three/addons/loaders/GLTFLoader.js';
 const host=document.getElementById('river3d');
 let renderer,scene,camera,player,avatar,loaderReady=false,entered=false,looping=false,peers=new Map();
 let points=[],curveDistance=[],totalDistance=1,riverIndex=60,startDistance=0,travelled=0,laps=0,clock=performance.now(),water=null,waterStrip=null,duckTemplate=null;
-let camOrbit=0,camHeight=13,camDistance=20,drag=null,entry=null,boarding=0;
+let camOrbit=0,camHeight=5.2,camDistance=9.5,drag=null,entry=null,boarding=0;
 const speed=5.2; // metres per second along the stream
 const mat=(c,roughness=.76)=>new THREE.MeshStandardMaterial({color:c,roughness});
 function box(w,h,d,color,x,y,z,p=scene){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat(color));m.position.set(x,y,z);p.add(m);return m}
@@ -28,21 +28,34 @@ function createDuckFallback(){
 function attachDuckRide(g){
   if(g.userData.duck) return g.userData.duck;
   const duck = duckTemplate ? duckTemplate.clone(true) : createDuckFallback();
-  duck.position.set(0,-.32,0); duck.scale.setScalar(1.05);
+  duck.position.set(0,-.32,0); duck.scale.setScalar(1.03);
   g.add(duck); g.userData.duck = duck; duck.visible=false; return duck;
+}
+function replaceDuckModel(g){
+  if(!g || !duckTemplate) return;
+  const old=g.userData.duck;
+  const wasVisible=old?.visible || false;
+  if(old) g.remove(old);
+  g.userData.duck=null;
+  const next=attachDuckRide(g);
+  next.visible=wasVisible;
 }
 function setFloatingPose(g, floating){
   const duck = attachDuckRide(g);
   duck.visible = floating;
   const body = g.userData.body; if(!body) return;
   if(floating){
-    body.position.set(0,.62,0);
-    body.rotation.set(0,0,Math.PI/2);
+    // Reclining seated pose in the hole of the float, head behind the duck's neck.
+    body.scale.setScalar(.81);
+    body.position.set(0,.38,-.20);
+    body.rotation.set(-.45,0,0);
   } else {
+    body.scale.setScalar(1);
     body.position.set(0,0,0);
-    body.rotation.x *= .8; body.rotation.y *= .8; body.rotation.z *= .8;
+    body.rotation.x *= .82; body.rotation.y *= .82; body.rotation.z *= .82;
   }
 }
+
 function buildWaterSurface(path, width=19){
   if(!path?.length) return null;
   const left=[], right=[];
@@ -134,17 +147,17 @@ function create(){
   const sun=new THREE.DirectionalLight('#fff2d3',3.3);sun.position.set(-40,95,35);scene.add(sun);
   player=person('#d6a35d');scene.add(player);updateLabel(player,'Bạn'); attachDuckRide(player);
   const loader=new GLTFLoader();
-  loader.load('/assets/thung-lung-song-vong-tron-3d.glb?v=6.8.0',gl=>{scene.add(gl.scene);loaderReady=true;document.getElementById('riverFloatBtn').disabled=!points.length;document.getElementById('riverStatus').textContent='Đã tải thung lũng 3D. Bắt đầu trôi khi bạn sẵn sàng.';},undefined,err=>{
+  loader.load('/assets/thung-lung-song-vong-tron-3d.glb?v=6.9.0',gl=>{scene.add(gl.scene);loaderReady=true;document.getElementById('riverFloatBtn').disabled=!points.length;document.getElementById('riverStatus').textContent='Đã tải thung lũng 3D. Bắt đầu trôi khi bạn sẵn sàng.';},undefined,err=>{
     console.error('River GLB load failed',err);document.getElementById('riverStatus').textContent='Không tải được mô hình thung lũng. Hãy tải lại trang.';
   });
-  loader.load('/assets/phao-con-vit-3d.glb?v=6.8.0', gl=>{ duckTemplate = gl.scene; if(player) attachDuckRide(player); }, undefined, err=>{ console.warn('Duck float model load failed, fallback will be used', err); });
-  fetch('/assets/river-route.json?v=6.8.0',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('river route not found');return r.json()}).then(readyPath).catch(err=>{
+  loader.load('/assets/phao-con-vit-3d.glb?v=6.9.0', gl=>{ duckTemplate=gl.scene; replaceDuckModel(player); for(const peer of peers.values()) replaceDuckModel(peer.group); }, undefined, err=>{ console.warn('Duck float model load failed, fallback will be used', err); });
+  fetch('/assets/river-route.json?v=6.9.0',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('river route not found');return r.json()}).then(readyPath).catch(err=>{
     console.error(err);document.getElementById('riverStatus').textContent='Không tải được tuyến sông. Hãy tải lại trang.';
   });
   host.addEventListener('pointerdown',e=>{if(!entered)return;drag={id:e.pointerId,x:e.clientX,y:e.clientY};host.setPointerCapture(e.pointerId)});
-  host.addEventListener('pointermove',e=>{if(!drag||e.pointerId!==drag.id)return;camOrbit+= (e.clientX-drag.x)*.006;camHeight=THREE.MathUtils.clamp(camHeight+(drag.y-e.clientY)*.035,6,35);drag.x=e.clientX;drag.y=e.clientY});
+  host.addEventListener('pointermove',e=>{if(!drag||e.pointerId!==drag.id)return;camOrbit+= (e.clientX-drag.x)*.006;camHeight=THREE.MathUtils.clamp(camHeight+(drag.y-e.clientY)*.025,3.2,17);drag.x=e.clientX;drag.y=e.clientY});
   for(const name of ['pointerup','pointercancel','lostpointercapture'])host.addEventListener(name,()=>drag=null);
-  host.addEventListener('wheel',e=>{if(!entered)return;e.preventDefault();camDistance=THREE.MathUtils.clamp(camDistance+e.deltaY*.015,10,48)},{passive:false});
+  host.addEventListener('wheel',e=>{if(!entered)return;e.preventDefault();camDistance=THREE.MathUtils.clamp(camDistance+e.deltaY*.012,5.5,25)},{passive:false});
   window.addEventListener('resize',resize);resize();requestAnimationFrame(frame);return true;
 }
 function resize(){if(!renderer)return;const w=host.clientWidth||1,h=host.clientHeight||1;renderer.setSize(w,h,false);camera.aspect=w/h;camera.fov=w<h?77:64;camera.updateProjectionMatrix()}
@@ -165,8 +178,8 @@ function frame(now){requestAnimationFrame(frame);if(!renderer||!entered||!scene)
     player.position.y+=Math.sin(now*.0035)*.09;
     const yaw=Math.atan2(tangent.x, tangent.z);
     player.rotation.y = yaw;
-    player.userData.body.rotation.x = -0.12 + Math.sin(now*.003)*.03;
-    player.userData.body.rotation.z = Math.PI/2 + Math.sin(now*.0025)*.02;
+    player.userData.body.rotation.x = -.45 + Math.sin(now*.003)*.025;
+    player.userData.body.rotation.z = Math.sin(now*.0025)*.018;
   }else{
     setFloatingPose(player,false);
     player.rotation.y += (0-player.rotation.y)*.12;
@@ -174,15 +187,15 @@ function frame(now){requestAnimationFrame(frame);if(!renderer||!entered||!scene)
   const backward=looping?tangent.clone().multiplyScalar(-camDistance):new THREE.Vector3(0,0,camDistance);
   const dx=backward.x*Math.cos(camOrbit)-backward.z*Math.sin(camOrbit);
   const dz=backward.x*Math.sin(camOrbit)+backward.z*Math.cos(camOrbit);
-  const target=new THREE.Vector3(center.x,center.y+.9,center.z);
-  const desired=target.clone().add(new THREE.Vector3(dx,camHeight+2,dz));
+  const target=new THREE.Vector3(center.x,center.y+.85,center.z);
+  const desired=target.clone().add(new THREE.Vector3(dx,camHeight+1,dz));
   camera.position.lerp(desired,.055);camera.lookAt(target);
   if(player.userData.label)player.userData.label.lookAt(camera.position);
   if(waterStrip){ waterStrip.position.y = -0.02 + Math.sin(now*.0012)*.04; if(waterStrip.material) waterStrip.material.opacity = 0.84 + Math.sin(now*.0018)*.06; }
   for(const peer of peers.values()){
     peer.group.position.lerp(peer.target,.25);
     setFloatingPose(peer.group, peer.floating);
-    if(peer.floating){ peer.group.rotation.y = Math.atan2(peer.tangent.x, peer.tangent.z); peer.group.userData.body.rotation.x = -0.12; peer.group.userData.body.rotation.z = Math.PI/2; }
+    if(peer.floating){ peer.group.rotation.y = Math.atan2(peer.tangent.x, peer.tangent.z); peer.group.userData.body.rotation.x = -.45; peer.group.userData.body.rotation.z = 0; }
     else { peer.group.rotation.y += (0-peer.group.rotation.y)*.12; }
     if(peer.group.userData.label)peer.group.userData.label.lookAt(camera.position);
   }
