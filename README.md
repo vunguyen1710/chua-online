@@ -47,3 +47,14 @@ Thay các file `game.js`, `inside3d.js`, `index.html`, `package.json`, `README.m
 - Mái điện dùng hai mặt dốc nối vào sống mái và hai mái cánh trái/phải, không còn đoạn mái rời ở giữa.
 - Cột đỏ được bố trí hai bên cửa, liền với chân và đầu cột; cửa chính chừa lối vào giữa.
 - Giữ sân lát gạch xám, tường trắng cửa sổ đỏ, mái ngói cam, cây khẩu nghiệp và logic Multiplayer.
+
+
+## v5.4 — Sửa sân gạch / tường bao / tương tác
+
+- Nền gạch ô xám phủ toàn bộ diện tích sân trong tường (không còn các dải cỏ chen giữa). Dùng 1 texture lặp để nhẹ hơn cho điện thoại.
+- Tường bao trắng khép kín bốn phía, tường bên có các ô cửa trang trí đỏ và mái ngói cam; tường trước chừa lối cổng.
+- Sửa tọa độ vật thể: Cây Khẩu Nghiệp chính xác tại tọa độ tương tác game (190,442), bàn viết sớ tại (926,493), cửa điện tại (600,401). Có vòng đánh dấu trên nền để dễ tương tác.
+- Camera sân giới hạn bên trong tường để giảm trường hợp nhìn xuyên tường.
+- Trên PC: WASD + E; trên điện thoại dùng joystick + nút tương tác, vuốt ở vùng 3D để xoay camera.
+
+**Lưu ý:** Three.js chạy bằng WebGL. Số lượng 100 người đồng thời chưa được kiểm thử tải thực tế; hiệu năng phụ thuộc thiết bị và hạ tầng Render.

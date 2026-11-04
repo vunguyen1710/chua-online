@@ -22,10 +22,10 @@ function textSprite(text, bg='#fff0ce', fg='#493321', size=64){
   const sprite=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthTest:false}));
   sprite.scale.set(4.2,1.02,1); return sprite;
 }
-function assignLabel(g,name){ if(g.userData.label) g.remove(g.userData.label); const s=textSprite(name); s.position.y=2.85; g.userData.label=s; g.add(s); }
+function assignLabel(g,name){ if(g.userData.lastName===name)return; if(g.userData.label){g.remove(g.userData.label);g.userData.label.material.map?.dispose();g.userData.label.material.dispose();} const s=textSprite(name); s.position.y=2.85; g.userData.label=s;g.userData.lastName=name; g.add(s); }
 function assignBubble(g,text){
   if(g.userData.bubbleText===text) return;
-  if(g.userData.bubble) g.remove(g.userData.bubble);
+  if(g.userData.bubble){g.remove(g.userData.bubble);g.userData.bubble.material.map?.dispose();g.userData.bubble.material.dispose();}
   const s=textSprite(text,'#fff9df','#503a25',43); s.position.y=3.58; s.visible=!!text; g.add(s); g.userData.bubble=s; g.userData.bubbleText=text;
 }
 function makePerson(color='#83a8a4'){
@@ -230,100 +230,137 @@ function buildPond(){
 }
 
 
-function buildCourtyardTiles(){
-  const tileMatA = col('#a7adb1', .95, 0), tileMatB = col('#969da2', .95, 0), groutMat = col('#737a7f', 1, 0);
-  const base = new THREE.Mesh(new THREE.BoxGeometry(34.8,.1,24.8), new THREE.MeshStandardMaterial({color:'#8a8f94', roughness:.98}));
-  base.position.set(0,.03,3.8); scene.add(base);
-  const tileW=1.55, tileD=1.55, startX=-16.15, startZ=-7.55;
-  for(let ix=0; ix<22; ix++){
-    for(let iz=0; iz<15; iz++){
-      const tone = ((ix+iz)%2===0) ? tileMatA : tileMatB;
-      const tile = new THREE.Mesh(new THREE.BoxGeometry(1.42,.045,1.42), tone);
-      tile.position.set(startX + ix*tileW, .08, startZ + iz*tileD + 3.8);
-      tile.rotation.y = ((ix*7+iz*11)%3)*0.02;
-      scene.add(tile);
+// One continuous grey paving texture covers every walkable outdoor location.
+// A single repeating material avoids thousands of tile meshes on mobile.
+function makeGreyPavingTexture(){
+  const c=document.createElement('canvas'); c.width=512;c.height=512;
+  const ctx=c.getContext('2d');
+  ctx.fillStyle='#73797d';ctx.fillRect(0,0,512,512);
+  let seed=371;
+  function rand(){seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;}
+  const colors=['#9ba2a5','#a7adb0','#92999e','#b0b5b7','#9fa5a8','#a4aaae','#969da1'];
+  for(let row=0;row<4;row++)for(let ix=0;ix<4;ix++){
+    const x=ix*128, y=row*128, shade=colors[Math.floor(rand()*colors.length)];
+    ctx.fillStyle='#686f73';ctx.fillRect(x,y,128,128);
+    ctx.fillStyle=shade;ctx.fillRect(x+5,y+5,118,118);
+    ctx.fillStyle='rgba(255,255,255,.12)';ctx.fillRect(x+6,y+6,116,2);ctx.fillRect(x+6,y+6,2,116);
+    ctx.fillStyle='rgba(25,30,34,.1)';ctx.fillRect(x+120,y+6,3,116);ctx.fillRect(x+6,y+120,116,3);
+    for(let dot=0;dot<105;dot++){
+      const px=x+8+rand()*112,py=y+8+rand()*112;
+      ctx.fillStyle=rand()>.52?'rgba(36,45,52,.10)':'rgba(255,255,255,.10)';
+      ctx.fillRect(px,py,1+rand()*2,1+rand()*2);
     }
   }
-  for(let ix=0; ix<23; ix++) box(.06,.02,24.2,groutMat,startX - .73 + ix*tileW,.06,3.8);
-  for(let iz=0; iz<16; iz++) box(34.2,.02,.06,groutMat,0,.06,startZ - .74 + iz*tileD + 3.8);
+  const texture=new THREE.CanvasTexture(c);
+  texture.colorSpace=THREE.SRGBColorSpace;
+  texture.wrapS=texture.wrapT=THREE.RepeatWrapping;
+  texture.repeat.set(9,9);
+  texture.anisotropy=Math.min(renderer.capabilities.getMaxAnisotropy(),4);
+  return texture;
+}
+function buildCourtyardTiles(){
+  // Wall inner area: X ±22.5, Z from -27.0 to 17.5.
+  const tiles=new THREE.Mesh(
+    new THREE.PlaneGeometry(45.2,45.8),
+    new THREE.MeshStandardMaterial({map:makeGreyPavingTexture(),roughness:.95,metalness:0})
+  );
+  tiles.rotation.x=-Math.PI/2;
+  tiles.position.set(0,.055,-4.75); scene.add(tiles);
+  // subtle exterior edging
+  const edging=col('#8f969b',.92);
+  box(45,.09,.16,edging,0,.10,-27.45);
+  box(45,.09,.16,edging,0,.10,17.62);
+  box(.16,.09,45,edging,-22.65,.10,-4.9);
+  box(.16,.09,45,edging,22.65,.10,-4.9);
 }
 
 function buildBoundaryWall(){
-  const wallMat = col('#f2efe7', .92, 0), trimMat = col('#c6473e', .68, .04), roofMat = col('#d1783b', .62, .08), capMat = col('#c7beb0', .88, .02);
-  const makeWallSection = (w, x, z, rotY=0, gate=false) => {
-    const g = new THREE.Group(); g.position.set(x,0,z); g.rotation.y = rotY; scene.add(g);
-    if(!gate){
-      box(w,3.6,.42,wallMat,0,1.8,0,g);
-      box(w,.18,.52,capMat,0,3.67,0,g);
-      box(w,.24,.7,roofMat,0,4.0,0,g);
-      // small red windows
-      const gap = 3.7; const count = Math.max(1, Math.floor((w-2.2)/gap));
-      const offset = -((count-1)*gap)/2;
-      for(let i=0;i<count;i++){
-        const px = offset + i*gap;
-        box(.95,1.05,.06,trimMat,px,2.1,.23,g);
-        box(.82,.92,.045,col('#f7f4ef', .94, 0),px,2.1,.25,g);
-        for(let k=-1;k<=1;k++) box(.03,.72,.03,trimMat,px+k*.23,2.1,.27,g);
-        for(const yy of [1.83,2.1,2.37]) box(.74,.03,.03,trimMat,px,yy,.27,g);
-      }
-    } else {
-      // leave a central gateway opening
-      const side = (w-8)/2;
-      box(side,3.6,.42,wallMat,-(4+side/2),1.8,0,g);
-      box(side,3.6,.42,wallMat,(4+side/2),1.8,0,g);
-      box(side,.18,.52,capMat,-(4+side/2),3.67,0,g); box(side,.18,.52,capMat,(4+side/2),3.67,0,g);
-      box(side,.24,.7,roofMat,-(4+side/2),4.0,0,g); box(side,.24,.7,roofMat,(4+side/2),4.0,0,g);
-      box(9.2,.24,.7,roofMat,0,4.35,0,g); box(8.4,.16,.5,capMat,0,4.05,0,g);
+  // Every segment uses the same real 3D wall, placed directly around the accessible courtyard.
+  const white=col('#f2f0e9',.91),base=col('#c6c6bf',.91),red=col('#a93531',.7),tile=col('#d77e39',.66),dark=col('#774a32',.72);
+  const sections=[];
+  function panel(w,x,z,rotation=0){
+    const group=new THREE.Group();group.position.set(x,0,z);group.rotation.y=rotation;scene.add(group);
+    box(w,3.3,.36,white,0,1.65,0,group);
+    box(w,.22,.55,base,0,.17,0,group);
+    box(w,.17,.56,dark,0,3.38,0,group);
+    // overlapping terracotta rows on top of the wall
+    box(w+.08,.26,.88,tile,0,3.62,0,group);
+    for(let i=-Math.floor(w/1.1)/2;i<=Math.floor(w/1.1)/2;i++){
+      const x=i*1.1;
+      if(Math.abs(x)>w/2-.35)continue;
+      const cap=cyl(.17,.17,.85,tile,x,3.77,0,group);
+      cap.rotation.x=Math.PI/2;
     }
-  };
-  makeWallSection(66,0,-27.8,0,false);
-  makeWallSection(66,0,27.8,0,true);
-  makeWallSection(54,-33,0,Math.PI/2,false);
-  makeWallSection(54,33,0,Math.PI/2,false);
-  // gateway pillars front center
-  const pillarMat = col('#ad3f35', .66, .06);
-  for(const x of [-4.2,4.2]){ box(.72,4.5,.72,pillarMat,x,2.25,27.8); box(.88,.16,.88,capMat,x,4.55,27.8); }
-  box(10.2,.28,.82,roofMat,0,4.65,27.8); box(9.3,.18,.6,capMat,0,4.35,27.8);
+    const n=Math.max(0,Math.floor(w/3.5));
+    for(let i=0;i<n;i++){
+      const px=(i-(n-1)/2)*3.5;
+      // decorative red framed small windows, on the courtyard-facing side
+      box(.93,1.0,.055,red,px,2.0,.225,group);
+      box(.72,.78,.065,col('#ead9c7',.9),px,2.0,.26,group);
+      for(let j=-1;j<=1;j++)box(.043,.69,.075,red,px+j*.22,2.0,.307,group);
+      for(const y of [1.77,2.0,2.23])box(.7,.045,.075,red,px,y,.31,group);
+      // outside-facing frame too
+      box(.93,1.0,.055,red,px,2.0,-.225,group);
+    }
+    sections.push(group);
+  }
+  // Rear wall, front wall with gate, and two continuous side walls.
+  panel(46,0,-27.7);
+  panel(19,-13.5,18.1); panel(19,13.5,18.1);
+  panel(46,23.1,-4.8,Math.PI/2);
+  panel(46,-23.1,-4.8,Math.PI/2);
+  // Front gate, leaving open middle passage.
+  for(const x of [-4.15,4.15]){
+    box(.72,4.2,.72,red,x,2.1,18.1);
+    box(1.0,.17,.95,tile,x,4.28,18.1);
+  }
+  box(9,.3,1.1,tile,0,4.40,18.1);
+  box(8.3,.18,.75,dark,0,4.10,18.1);
 }
 
 function buildScene(){
   scene = new THREE.Scene();
   scene.background = new THREE.Color('#b7d9f1');
-  scene.fog = new THREE.Fog('#bdd8e7', 35, 72);
+  scene.fog = new THREE.Fog('#bdd8e7', 48, 115);
   camera = new THREE.PerspectiveCamera(64,1,.08,140);
   scene.add(new THREE.HemisphereLight('#fff4dc','#5b6b52',2.5));
   const sun = new THREE.DirectionalLight('#fff0c2',3.8); sun.position.set(-12,18,14); scene.add(sun);
 
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(72,64), new THREE.MeshStandardMaterial({color:'#6d9256', roughness:.97}));
-  ground.rotation.x=-Math.PI/2; scene.add(ground);
-
-  // very large courtyard for many players
-  const courtyard = new THREE.Mesh(new THREE.PlaneGeometry(34,24), new THREE.MeshStandardMaterial({color:'#c6a781', roughness:.95}));
-  courtyard.rotation.x=-Math.PI/2; courtyard.position.set(0,.01,3.8); scene.add(courtyard);
-  for(let x=-16.5;x<=16.5;x+=1.7) box(.05,.01,24,col('#9a7b58'),x,.02,3.8);
-  for(let z=-7.8;z<=15.5;z+=1.7) box(34,.01,.05,col('#9a7b58'),0,.02,z);
-
-  // outer stone path
-  for(let i=0;i<10;i++){ const stone=new THREE.Mesh(new THREE.BoxGeometry(1.8,.08,2.1), new THREE.MeshStandardMaterial({color:i%2?'#cdb496':'#bea281', roughness:.95})); stone.position.set(0,.06,17.5-i*2.25); scene.add(stone);}  
-  box(10,.32,.5,col('#d1ad67',.4,.2),0,4.25,22.2); box(.56,4.5,.56,col('#8c2d23'),-3.7,2.25,22.2); box(.56,4.5,.56,col('#8c2d23'),3.7,2.25,22.2); box(8.6,.22,.36,col('#4a2114'),0,4.52,22.2);
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(90,90), new THREE.MeshStandardMaterial({color:'#718b64',roughness:.98}));
+  ground.rotation.x=-Math.PI/2;ground.position.y=-.08; scene.add(ground);
+  buildCourtyardTiles();
+  buildBoundaryWall();
 
   buildTemple();
   buildPond();
 
-  // karma tree area left side, large and eye-catching
-  buildKarmaTree(-24.5,1.2);
-  treeCluster(-28.5,-5.2,1.2); treeCluster(-26.6,8.0,1.05);
-
-  // prayer desk area on right
-  box(3.4,.22,1.5,col('#8c5c36'),24.5,1.3,2.1); box(.22,1.15,.22,col('#694226'),23.35,.58,1.45); box(.22,1.15,.22,col('#694226'),25.65,.58,1.45); box(.22,1.15,.22,col('#694226'),23.35,.58,2.75); box(.22,1.15,.22,col('#694226'),25.65,.58,2.75); box(1.8,.1,.82,col('#ebddb0'),24.5,1.47,2.1);
-  const desk=textSprite('BÀN VIẾT SỚ','#694226','#f9ecc5',34); desk.scale.set(3.4,.8,1); desk.position.set(24.5,2.95,2.2); scene.add(desk);
-  lanternPole(22.4,1.3,2.35); lanternPole(26.6,1.3,2.35);
-
-  // garden decorations and trees around the edges
-  for(const [x,z,s] of [[17.8,13,.95],[24.2,11.5,.8],[-8,17.2,.95],[10.5,18.3,.85],[-15.5,-8.5,.95],[4.6,-9.3,.85],[21.8,-6.8,.9],[-25.0,16.5,.85]]) treeCluster(x,z,s);
-  for(const [x,z,s] of [[-12,13,.9],[-7,13.8,.75],[-2,14.5,.7],[5,14.7,.72],[12,13.9,.8],[19,13.2,.78]]) shrub(x,z,s);
-  for(const [x,z,s] of [[-17,4,.8],[-14,6,.72],[-11,7.6,.7],[11,6.5,.75],[14,4.8,.7],[18,5.4,.73]]) shrub(x,z,s);
-  for(const [x,z,h] of [[-13.5,-1.2,2.4],[-6.3,-1.5,2.3],[6.3,-1.5,2.3],[13.5,-1.2,2.4],[-10.5,11.6,2.4],[10.5,11.6,2.4],[-23.2,4.4,2.6],[23.2,4.4,2.6]]) lanternPole(x,z,h);
+  // The 3D objects use the EXACT game interaction coordinates.
+  // Tree: game.js (190,442), desk: (926,493), shrine door: (600,401).
+  const treePoint=mapPosition({x:190,y:442});
+  const deskPoint=mapPosition({x:926,y:493});
+  const doorPoint=mapPosition({x:600,y:401});
+  buildKarmaTree(treePoint.x,treePoint.z);
+  // Noticeable ground markers for the interaction points.
+  function marker(x,z,color){
+    const m=new THREE.Mesh(new THREE.RingGeometry(.85,1.05,48),new THREE.MeshBasicMaterial({color,transparent:true,opacity:.62,side:THREE.DoubleSide,depthWrite:false}));
+    m.rotation.x=-Math.PI/2;m.position.set(x,.12,z);scene.add(m);
+  }
+  marker(treePoint.x,treePoint.z,'#f2c26e');
+  marker(deskPoint.x,deskPoint.z,'#ffe0a1');
+  marker(doorPoint.x,doorPoint.z,'#f7dfa6');
+  // Writing desk located next to reachable gameplay trigger.
+  const deskX=deskPoint.x,deskZ=deskPoint.z;
+  const deskWood=col('#8c5c36'),legs=col('#694226'),paper=col('#ebddb0');
+  box(3.2,.24,1.35,deskWood,deskX,1.32,deskZ);
+  for(const dx of [-1.12,1.12])for(const dz of [-.44,.44]) box(.2,1.17,.2,legs,deskX+dx,.61,deskZ+dz);
+  box(1.75,.095,.77,paper,deskX,1.5,deskZ);
+  const desk=textSprite('BÀN VIẾT SỚ','#694226','#f9ecc5',34);
+  desk.scale.set(3.3,.8,1);desk.position.set(deskX,2.88,deskZ);scene.add(desk);
+  lanternPole(deskX-2.25,deskZ,2.3);lanternPole(deskX+2.25,deskZ,2.3);
+  // Landscape remains along the border, not over the play paths.
+  for(const [x,z,size] of [[-18.0,12.8,.65],[18.1,12.5,.65],[-19.0,-17.6,.74],[19.1,-17.5,.75],[-19.1,4.8,.55],[19.1,5.8,.53],[-15.8,14.5,.48],[15.8,14.5,.48]])treeCluster(x,z,size);
+  for(const [x,z,size] of [[-19.1,0,.65],[19.1,1,.67],[-16,13.3,.7],[15.9,13.4,.67]])shrub(x,z,size);
+  for(const [x,z,h] of [[-17,-9.0,2.2],[17,-8.8,2.2],[-17,7.2,2.2],[17,7.2,2.2],[-4.3,12.9,2.1],[4.3,12.9,2.1]])lanternPole(x,z,h);
 
   avatar = makePerson('#d7a85f'); scene.add(avatar); assignLabel(avatar,'Bạn');
 }
@@ -341,6 +378,9 @@ function updateCamera(playerPos){
   const radiusXZ = cameraDistance*Math.cos(cameraPitch);
   const target = new THREE.Vector3(playerPos.x, 1.5, playerPos.z + .4);
   const desired = target.clone().add(new THREE.Vector3(Math.sin(cameraYaw)*radiusXZ, cameraDistance*Math.sin(cameraPitch)+.2, Math.cos(cameraYaw)*radiusXZ));
+  // Keep the third-person camera inside the boundary walls.
+  desired.x=THREE.MathUtils.clamp(desired.x,-21.6,21.6);
+  desired.z=THREE.MathUtils.clamp(desired.z,-26.4,16.9);
   camera.position.lerp(desired,.08); camera.lookAt(target);
 }
 function loop(now){ requestAnimationFrame(loop); if(!entered||!renderer) return; const dt=Math.min((now-last)/1000,.06); last=now; elapsed+=dt;
