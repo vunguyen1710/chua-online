@@ -131,7 +131,7 @@
   ];
   const rand = (a,b)=> a+Math.random()*(b-a);
 const MEDITATION_SPOTS = [{"x":255,"y":500},{"x":405,"y":500},{"x":795,"y":500},{"x":945,"y":500},{"x":255,"y":600},{"x":405,"y":600},{"x":795,"y":600},{"x":945,"y":600},{"x":255,"y":700},{"x":405,"y":700},{"x":795,"y":700},{"x":945,"y":700}];
-  const ZONES={tree:{x:190,y:442,r:145},desk:{x:926,y:493,r:117},door:{x:600,y:401,r:100},smash:{x:390,y:508,r:96},arena:{x:760,y:508,r:96},ritual:{x:600,y:460,r:105}};
+  const ZONES={tree:{x:130,y:430,r:145},desk:{x:1070,y:470,r:117},door:{x:600,y:420,r:100},smash:{x:220,y:640,r:96},arena:{x:980,y:640,r:96},ritual:{x:600,y:460,r:105}};
   // Compare in the same metric as the 3D world (32.5 px per X unit; 15.4 px per Z unit).
   // This keeps click/interaction radii centered exactly on the 3D marker rather than on old pixel circles.
   function near3D(zone,radius){return Math.hypot((state.player.x-zone.x)/32.5,(state.player.y-zone.y)/15.4)<radius;}
@@ -395,7 +395,7 @@ const MEDITATION_SPOTS = [{"x":255,"y":500},{"x":405,"y":500},{"x":795,"y":500},
       state.scene='temple';window.temple3D?.exit();window.courtyard3D?.enter();syncShrineMusic();state.player.x=600;state.player.y=445;
       state.near=false;state.nearMeditation=false;state.meditationSpot=null;
       $('chapter').textContent='01 / KHU XẢ STRESS';$('sceneTitle').innerHTML='Xả bực, thư giãn,<br>và treo khẩu nghiệp.';
-      $('sceneSubtitle').textContent='Bạn đã trở lại khu ngoài trời 3D: Cây Khẩu Nghiệp, Đấu Trường Deadline, bao cát và bàn xả bực riêng tư.';
+      $('sceneSubtitle').textContent='Bạn đã trở lại sân 3D rộng rãi hơn với các khu được bố trí tách xa: Cây Khẩu Nghiệp, Nhà Hồi Phục, bao cát, Đấu Trường Deadline và bàn xả bực riêng tư.';
       sendPosition(true);updateAction();toast('Bạn đã trở lại khu xả stress.');return;
     }
     if(state.scene==='inside'&&state.meditating){state.meditating=false;state.meditateClock=0;toast('Bạn đã đứng dậy khỏi đệm thư giãn.');updateAction();sendPosition(true);tone(500,.2);return;}
@@ -430,7 +430,7 @@ const MEDITATION_SPOTS = [{"x":255,"y":500},{"x":405,"y":500},{"x":795,"y":500},
   $('incenseBtn').addEventListener('click',()=>{if(state.scene!=='inside'||state.ritual!==2)return;state.ritual=3;modal('incenseModal',false);$('blessingText').textContent='“'+state.blessing+'”';modal('blessingModal',true);tone(880,.3);setTimeout(()=>tone(1046,.4),240)});
   $('releaseBtn').addEventListener('click',()=>{if(state.ritual!==3)return;modal('blessingModal',false);state.count++;$('fishCount').textContent=String(state.count);try{localStorage.setItem('xastress_relief',String(state.count))}catch(_){};setVirtue(state.virtue+3);state.scene='temple';window.temple3D?.exit();window.courtyard3D?.enter();syncShrineMusic();state.ritual=0;state.hasLetter=false;state.meditating=false;state.meditateClock=0;state.player.x=610;state.player.y=610;sendPosition(true);$('chapter').textContent='01 / KHU XẢ STRESS';$('sceneTitle').innerHTML='Xả bực, thư giãn,<br>và treo khẩu nghiệp.';$('sceneSubtitle').textContent='Bạn vừa hoàn thành một vòng xả stress. Hãy tiếp tục khám phá các khu 3D khác.';$('prayerInput').value='';$('prayerCharCount').textContent='0/400';toast('💨 Một vòng xả stress hoàn tất! +1 lượt xả, +3 bình tĩnh.');updateAction();tone(523,.25)});
   $('dropFishBtn').addEventListener('click',()=>{if(state.fishReleased)return;state.fishReleased=true;state.fishStart=performance.now();state.count++;$('fishCount').textContent=String(state.count);try{localStorage.setItem('xastress_relief',String(state.count))}catch(_){}$('dropFishBtn').classList.add('hidden');$('releaseStatus').textContent='Cá vàng đã trở về hồ ✨';$('releaseNote').textContent='Mong điều vui đến gần, điều buồn trôi xa. Cá đang bơi trong hồ!';$('againBtn').classList.remove('hidden');tone(784,.35);setTimeout(()=>tone(1046,.4),240)});
-  $('againBtn').addEventListener('click',()=>{state.scene='temple';window.temple3D?.exit();window.courtyard3D?.enter();syncShrineMusic();sendPosition(true);state.player={x:610,y:610,dir:0,steps:0};state.keys.clear();state.joyX=0;state.joyY=0;resetJoystick();state.near=false;state.locked=false;state.ritual=0;state.hasLetter=false;state.blessing='';state.meditating=false;state.meditateClock=0;state.nearMeditation=false;state.meditationSpot=null;$('chapter').textContent='01 / KHU XẢ STRESS';$('sceneTitle').innerHTML='Xả bực, thư giãn,<br>và treo khẩu nghiệp.';$('sceneSubtitle').textContent='Khám phá các khu 3D ngoài trời: Cây Khẩu Nghiệp, Đấu Trường Deadline, bao cát, bàn xả bực và Nhà Hồi Phục.';$('releasePanel').classList.add('hidden');$('actionBtn').classList.remove('hidden');$('controlTip').classList.remove('hidden');$('mobileControls').classList.remove('hidden');$('prayerInput').value='';$('prayerCharCount').textContent='0/400';updateAction()});
+  $('againBtn').addEventListener('click',()=>{state.scene='temple';window.temple3D?.exit();window.courtyard3D?.enter();syncShrineMusic();sendPosition(true);state.player={x:610,y:610,dir:0,steps:0};state.keys.clear();state.joyX=0;state.joyY=0;resetJoystick();state.near=false;state.locked=false;state.ritual=0;state.hasLetter=false;state.blessing='';state.meditating=false;state.meditateClock=0;state.nearMeditation=false;state.meditationSpot=null;$('chapter').textContent='01 / KHU XẢ STRESS';$('sceneTitle').innerHTML='Xả bực, thư giãn,<br>và treo khẩu nghiệp.';$('sceneSubtitle').textContent='Khám phá sân 3D mới: nền gạch phủ toàn sân, các khu được đặt xa nhau hơn, không còn cây trang trí thừa.';$('releasePanel').classList.add('hidden');$('actionBtn').classList.remove('hidden');$('controlTip').classList.remove('hidden');$('mobileControls').classList.remove('hidden');$('prayerInput').value='';$('prayerCharCount').textContent='0/400';updateAction()});
   const fullscreenBtn=$('fullscreenBtn');
   fullscreenBtn?.addEventListener('click', async()=>{
     try {
@@ -459,5 +459,5 @@ const MEDITATION_SPOTS = [{"x":255,"y":500},{"x":405,"y":500},{"x":795,"y":500},
   }
   window.addEventListener('courtyard3d-ready',beginCourtyard);
   if(window.courtyard3D) beginCourtyard();
-  state.locked=true;requestAnimationFrame(render);setTimeout(()=>toast('Bên trái: Cây Khẩu Nghiệp • Giữa trái: bao cát • Giữa phải: Đấu Trường Deadline • Bên phải: bàn xả bực riêng tư 🌿'),800);
+  state.locked=true;requestAnimationFrame(render);setTimeout(()=>toast('Trái sau: Cây Khẩu Nghiệp • Giữa sau: Nhà Hồi Phục • Trái trước: bao cát • Phải trước: Đấu Trường Deadline • Phải sau: bàn xả bực 🌿'),800);
 })();

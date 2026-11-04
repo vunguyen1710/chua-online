@@ -48,7 +48,7 @@ function mapPosition(p){
 }
 function fromGame(x,y){ return mapPosition({x,y}); }
 // Shared authoring scale: character height ~2.1m, all GLB origins ground-center (Y=0), front = +Z.
-const LOCATIONS={tree:fromGame(190,442),door:fromGame(600,401),smash:fromGame(390,508),arena:fromGame(760,508),desk:fromGame(926,493)};
+const LOCATIONS={tree:fromGame(130,430),door:fromGame(600,420),smash:fromGame(220,640),arena:fromGame(980,640),desk:fromGame(1070,470)};
 
 function treeCluster(x,z,scale=1){
   const g=new THREE.Group(); g.position.set(x,0,z); scene.add(g);
@@ -84,15 +84,26 @@ function buildBoundary(){
   wallRun(66,0,-27.5,0,false); wallRun(66,0,27.5,0,true); wallRun(54,-33,0,Math.PI/2,false); wallRun(54,33,0,Math.PI/2,false);
 }
 function buildGround(){
-  const grass = new THREE.Mesh(new THREE.PlaneGeometry(72,64), new THREE.MeshStandardMaterial({color:'#7e9f63', roughness:.98})); grass.rotation.x=-Math.PI/2; scene.add(grass);
-  const base = new THREE.Mesh(new THREE.BoxGeometry(39.5,.12,23.5), new THREE.MeshStandardMaterial({color:'#8f959b', roughness:.98})); base.position.set(0,.06,1.5); scene.add(base);
-  const mats=[col('#9ea4aa',.97), col('#adb3b9',.97), col('#8f959b',.97), col('#a6acb1',.97)];
-  for(let ix=0;ix<22;ix++) for(let iz=0;iz<13;iz++){
-    const tile=new THREE.Mesh(new THREE.BoxGeometry(1.6,.05,1.6), mats[(ix+iz)%mats.length]);
-    tile.position.set(-17.2+ix*1.64,.1,-8.3+iz*1.7); tile.rotation.y=((ix*3+iz*5)%3)*0.015; scene.add(tile);
+  const under = new THREE.Mesh(new THREE.PlaneGeometry(72,64), new THREE.MeshStandardMaterial({color:'#8f959b', roughness:.99}));
+  under.rotation.x=-Math.PI/2; under.position.y=0; scene.add(under);
+  const mats=[col('#9aa0a6',.98), col('#a9afb5',.98), col('#8e959b',.98), col('#b5bbc0',.98)];
+  const tileW=1.6, tileD=1.6;
+  const startX=-30.4, endX=30.4, startZ=-24.0, endZ=24.0;
+  let ix=0;
+  for(let x=startX; x<=endX; x+=tileW){
+    let iz=0;
+    for(let z=startZ; z<=endZ; z+=tileD){
+      const tile=new THREE.Mesh(new THREE.BoxGeometry(1.56,.05,1.56), mats[(ix+iz)%mats.length]);
+      tile.position.set(x,.06,z);
+      tile.rotation.y=((ix*7+iz*3)%4)*0.01;
+      scene.add(tile);
+      iz++;
+    }
+    ix++;
   }
-  for(let ix=0;ix<=22;ix++) box(.05,.02,22.5,col('#767d83',1),-17.98+ix*1.64,.095,1.5);
-  for(let iz=0;iz<=13;iz++) box(38.2,.02,.05,col('#767d83',1),0,.095,-9.15+iz*1.7);
+  const lineMat=col('#767d83',1);
+  for(let x=startX-0.8; x<=endX+0.8; x+=tileW) box(.05,.02,(endZ-startZ)+1.6,lineMat,x,.075,0);
+  for(let z=startZ-0.8; z<=endZ+0.8; z+=tileD) box((endX-startX)+1.6,.02,.05,lineMat,0,.075,z);
 }
 function buildStressHouseFallback(){
   const pos = LOCATIONS.door;
@@ -117,17 +128,17 @@ function buildStressHouseFallback(){
   box(4.8,2.6,4.4,body,8.1,1.8,-1.8,g); const awn2=new THREE.Mesh(new THREE.BoxGeometry(4.9,.22,5.1), roof); awn2.position.set(8.1,3.35,-1.8); awn2.rotation.z=-.15; g.add(awn2);
   // sign
   const sign=textSprite('NHÀ XẢ STRESS','#2e5b47','#fef1be',42); sign.scale.set(5.6,1,1); sign.position.set(0,4.35,5.42); g.add(sign);
-  doorGlow = ringMarker(fromGame(600,401),'#fff2a0',1.1);
+  doorGlow = ringMarker(LOCATIONS.door,'#fff2a0',1.1);
   return g;
 }
 function buildVentDeskFallback(){
-  const pos=fromGame(926,493); const g=new THREE.Group(); g.position.set(pos.x,0,pos.z); scene.add(g);
+  const pos=LOCATIONS.desk; const g=new THREE.Group(); g.position.set(pos.x,0,pos.z); scene.add(g);
   box(3.2,.2,1.4,col('#8b5a38'),0,1.18,0,g); for(const x of [-1.25,1.25]) for(const z of [-.45,.45]) box(.16,1.05,.16,col('#644328'),x,.53,z,g);
   box(1.9,.08,.7,col('#f0e4ba'),0,1.38,0,g); box(.7,.08,.08,col('#da7e58'),0,1.52,.2,g); const sign=textSprite('BÀN XẢ BỰC', '#71482d', '#fff0c1', 36); sign.scale.set(3.6,.82,1); sign.position.set(0,3.0,.2); g.add(sign);
   ringMarker(pos,'#ffd98f',1.0);
 }
 function buildSmashZoneFallback(){
-  const pos=fromGame(390,508); const g=new THREE.Group(); g.position.set(pos.x,0,pos.z); scene.add(g);
+  const pos=LOCATIONS.smash; const g=new THREE.Group(); g.position.set(pos.x,0,pos.z); scene.add(g);
   const pad=new THREE.Mesh(new THREE.CylinderGeometry(1.5,1.5,.12,32), new THREE.MeshStandardMaterial({color:'#cf7448',roughness:.84})); pad.position.y=.06; g.add(pad);
   smashBag = new THREE.Group(); smashBag.position.set(0,0,0); g.add(smashBag);
   cyl(.09,.09,2.7,col('#6c4a36'),0,2.2,0,smashBag); box(1.1,.12,.12,col('#6c4a36'),0,3.42,0,smashBag);
@@ -177,7 +188,7 @@ function loadAsset(url, onSuccess, onError){
 function loadRecoveryHouse(){
   // House entry staircase is at local Z=+5.6, exactly where the interaction ring sits.
   const door=LOCATIONS.door;
-  loadAsset('/assets/nha-hoi-phuc-3d.glb?v=6.2.0', model => {
+  loadAsset('/assets/nha-hoi-phuc-3d.glb?v=6.4.0', model => {
     model.position.set(door.x,0,door.z-5.6); // align staircase to doorway trigger
     scene.add(model);
     const sign=textSprite('NHÀ HỒI PHỤC','#2e5b47','#fef1be',42);
@@ -189,7 +200,7 @@ function loadRecoveryHouse(){
 }
 function loadVentDeskModel(){
   const pos=LOCATIONS.desk;
-  loadAsset('/assets/ban-xa-buc-3d.glb?v=6.2.0',model=>{
+  loadAsset('/assets/ban-xa-buc-3d.glb?v=6.4.0',model=>{
     // Shift the furniture slightly back: the ring is on the walkable side of the chair.
     model.position.set(pos.x,0,pos.z-.7);
     scene.add(model);
@@ -201,7 +212,7 @@ function loadVentDeskModel(){
 }
 function loadSmashZoneModel(){
   const pos=LOCATIONS.smash;
-  loadAsset('/assets/bao-cat-3d.glb?v=6.2.0',model=>{
+  loadAsset('/assets/bao-cat-3d.glb?v=6.4.0',model=>{
     model.position.set(pos.x,0,pos.z); scene.add(model);
     // Only swing the punching bag itself, never the frame, mat, gloves or crates.
     const pivot=new THREE.Group(); pivot.position.set(0,2.42,0); model.add(pivot);
@@ -221,15 +232,12 @@ function buildPondAndRelax(){
   const rim = new THREE.Mesh(new THREE.RingGeometry(3.8,4.15,48), new THREE.MeshStandardMaterial({color:'#cab597', roughness:.92})); rim.rotation.x=-Math.PI/2; rim.position.set(0,.045,9.1); scene.add(rim);
   for(const [x,z] of [[-.7,8.6],[.8,9.9],[1.2,8.4]]){ sphere(.12,col('#e899b8'),x,.08,z); }
   bench(-4.8,9.5,.3); bench(4.8,9.5,-.3);
-  for(const x of [-6.8,-3.4,3.4,6.8]) shrub(x,8.2,.8);
+
 }
-function buildDecor(){
-  for(const [x,z,s] of [[-14,-4,.92],[14,-4,.92],[-16,6,.95],[16,6,.95],[-10,13,.85],[10,13,.85],[-22,12,.95],[22,12,.95]]) treeCluster(x,z,s);
-  for(const [x,z,s] of [[-12,2,.8],[-8,12,.74],[-2,14,.7],[2,14,.7],[8,12,.74],[12,2,.8],[-20,2,.8],[20,2,.8]]) shrub(x,z,s);
-}
+function buildDecor(){}
 function loadKarmaTree(){
   const loader = new GLTFLoader();
-  const pos = fromGame(190,442);
+  const pos = LOCATIONS.tree;
   loader.load('/assets/cay-khau-nghiep-3d.glb', gltf => {
     const model = gltf.scene;
     model.position.set(pos.x,0,pos.z);
