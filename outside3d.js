@@ -83,27 +83,37 @@ function buildBoundary(){
   }
   wallRun(66,0,-27.5,0,false); wallRun(66,0,27.5,0,true); wallRun(54,-33,0,Math.PI/2,false); wallRun(54,33,0,Math.PI/2,false);
 }
+// Entire inner courtyard (-32.75..32.75, -27.25..27.25) uses ONE tiled mesh.
+// Texture is generated in-browser. No grass is rendered inside the wall.
 function buildGround(){
-  const under = new THREE.Mesh(new THREE.PlaneGeometry(72,64), new THREE.MeshStandardMaterial({color:'#8f959b', roughness:.99}));
-  under.rotation.x=-Math.PI/2; under.position.y=0; scene.add(under);
-  const mats=[col('#9aa0a6',.98), col('#a9afb5',.98), col('#8e959b',.98), col('#b5bbc0',.98)];
-  const tileW=1.6, tileD=1.6;
-  const startX=-30.4, endX=30.4, startZ=-24.0, endZ=24.0;
-  let ix=0;
-  for(let x=startX; x<=endX; x+=tileW){
-    let iz=0;
-    for(let z=startZ; z<=endZ; z+=tileD){
-      const tile=new THREE.Mesh(new THREE.BoxGeometry(1.56,.05,1.56), mats[(ix+iz)%mats.length]);
-      tile.position.set(x,.06,z);
-      tile.rotation.y=((ix*7+iz*3)%4)*0.01;
-      scene.add(tile);
-      iz++;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 512;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle='#727b83';ctx.fillRect(0,0,512,512);
+  const palette=['#a6afb6','#b9c1c7','#929da6','#c1c8ce','#aab5bc','#9da9b1'];
+  for(let r=0;r<4;r++)for(let c=0;c<4;c++){
+    const x=c*128,y=r*128;
+    ctx.fillStyle='#637078';ctx.fillRect(x,y,128,128);
+    ctx.fillStyle=palette[(r*5+c*7)%palette.length];ctx.fillRect(x+4,y+4,120,120);
+    ctx.fillStyle='rgba(255,255,255,.19)';ctx.fillRect(x+5,y+5,118,2);ctx.fillRect(x+5,y+5,2,118);
+    ctx.fillStyle='rgba(30,36,44,.16)';ctx.fillRect(x+121,y+5,2,117);ctx.fillRect(x+5,y+121,116,2);
+    for(let i=0;i<16;i++){
+      const nx=x+7+((i*37+r*41+c*19)%109),ny=y+7+((i*51+c*27+r*13)%109);
+      ctx.fillStyle=i%2?'rgba(255,255,255,.09)':'rgba(25,30,35,.09)';
+      ctx.fillRect(nx,ny,2,2);
     }
-    ix++;
   }
-  const lineMat=col('#767d83',1);
-  for(let x=startX-0.8; x<=endX+0.8; x+=tileW) box(.05,.02,(endZ-startZ)+1.6,lineMat,x,.075,0);
-  for(let z=startZ-0.8; z<=endZ+0.8; z+=tileD) box((endX-startX)+1.6,.02,.05,lineMat,0,.075,z);
+  const tex=new THREE.CanvasTexture(canvas);tex.colorSpace=THREE.SRGBColorSpace;
+  tex.wrapS=tex.wrapT=THREE.RepeatWrapping;
+  tex.repeat.set(10,9);
+  tex.anisotropy=Math.min(4,renderer?.capabilities?.getMaxAnisotropy?.()||1);
+  const floor=new THREE.Mesh(new THREE.PlaneGeometry(65.5,54.5),
+    new THREE.MeshStandardMaterial({map:tex,roughness:.97,metalness:0}));
+  floor.rotation.x=-Math.PI/2;floor.position.y=.025;floor.name='SAN_GACH_XAM_TOAN_BO_6_5';scene.add(floor);
+  // A thin edge under the walls covers texture seams at every perimeter.
+  const edge=col('#778088',.98);
+  box(66,.065,.26,edge,0,.035,-27.26);box(66,.065,.26,edge,0,.035,27.26);
+  box(.26,.065,54.5,edge,-32.76,.035,0);box(.26,.065,54.5,edge,32.76,.035,0);
 }
 function buildStressHouseFallback(){
   const pos = LOCATIONS.door;
@@ -257,7 +267,7 @@ function loadKarmaTree(){
 function buildScene(){
   scene = new THREE.Scene();
   scene.background = new THREE.Color('#cfe0ea');
-  scene.fog = new THREE.Fog('#d7e5ec', 22, 58);
+  scene.fog = new THREE.Fog('#d7e5ec', 50, 110);
   camera = new THREE.PerspectiveCamera(64,1,.08,120);
   scene.add(new THREE.HemisphereLight('#fff6de','#61745e',2.6));
   const sun = new THREE.DirectionalLight('#fff0c7',3.2); sun.position.set(-12,18,10); scene.add(sun);
