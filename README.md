@@ -1,69 +1,24 @@
-# CHÙA ONLINE 3.9 — ĐIỆN QUAN ÂM 3D, NHẠC THIỀN VÀ NỘI THẤT DÂN GIAN
+# Xả Stress Online 6.1 (3D Multiplayer)
 
-Nâng cấp trực tiếp từ bản 3.8. Giữ nguyên sân chùa, Cây Khẩu Nghiệp, trò chuyện nhiều người qua Socket.IO, dâng sớ và phóng sinh. Nội điện vẫn sử dụng Three.js và hỗ trợ di chuyển theo hướng camera.
+Bản 6.1 nâng cấp các mô hình 3D chính ngoài sân:
+- `assets/cay-khau-nghiep-3d.glb` — Cây Khẩu Nghiệp
+- `assets/nha-hoi-phuc-3d.glb` — Nhà Hồi Phục 3D
+- `assets/bao-cat-3d.glb` — Bao cát / khu đập phá 3D
+- `assets/ban-xa-buc-3d.glb` — Bàn Xả Bực 3D
 
-## Những điểm thay đổi
+## Điểm mới
+- Nhà Hồi Phục, bao cát và bàn xả bực đã chuyển sang **mô hình GLB thật** thay vì chỉ dựng bằng vài khối đơn giản.
+- `outside3d.js` ưu tiên tải các GLB mới. Nếu thiết bị tải lỗi, game sẽ tự rơi về mô hình dựng sẵn dự phòng để không trắng màn hình.
+- Giữ nguyên multiplayer, Cây Khẩu Nghiệp, Phòng Hét, Nhà Hồi Phục bên trong và các điểm tương tác.
 
-- **Nhạc thiền nhẹ**: tệp `assets/nhac-thien-dien-quan-am.mp3` là nhạc nền không lời tự tạo dành riêng cho game. Tự phát khi người chơi tương tác để bước vào điện; dừng khi ra khỏi điện/chuyển cảnh/ẩn tab, bật lại khi quay về nếu âm thanh được bật. Nút ♫ bật/tắt và lưu lựa chọn trên thiết bị. Trình duyệt có thể chặn tự phát trước tương tác đầu tiên.
-- **Đệm thiền**: 12 đệm bố trí theo 3 hàng, khoảng cách lớn hơn. Chỉ chọn **đệm gần nhất trong phạm vi 43 đơn vị tọa độ**, tránh việc tự nhảy sang đệm khác. Giữ hiệu ứng +1 tích đức mỗi giây khi thiền.
-- **Bàn thờ Quan Âm**: thêm bệ thờ nhiều tầng, sơn son thếp vàng, bình hoa sen, đèn dầu, hoa văn và khung bảng; giữ tượng 3D và hình nền điện gốc.
-- **Tường và cửa sổ**: các mảng hoa văn đỏ vàng và cửa sổ nan gỗ ở hai vách, dùng chất liệu bán trong suốt ở sát mép để giảm khả năng che góc camera.
+## Tạo lại mô hình
+Nếu muốn chỉnh các asset 3D, chạy:
+```bash
+python create_stress_models.py
+```
 
-## Chạy thử trên Windows
-
+## Chạy local
 ```bash
 npm install
 npm start
 ```
-
-Mở `http://localhost:3000`. Điện thoại cùng mạng LAN có thể vào `http://IP_MAY_TINH:3000` khi tường lửa cho phép.
-
-## Cập nhật Render
-
-Thay các file `game.js`, `inside3d.js`, `index.html`, `package.json`, `README.md` và **upload file MP3 mới trong thư mục `assets`**. Giữ ảnh `assets/dien-quan-am.png`. Không upload `node_modules`. Commit lên GitHub, để Render deploy commit mới.
-
-`DATABASE_URL` trên Render vẫn được dùng cho việc lưu lời trên Cây Khẩu Nghiệp; điểm tích đức hiện lưu trên trình duyệt. Vào điện không yêu cầu viết sớ, nhưng dâng sớ vẫn yêu cầu viết sớ trước.
-
-## Kiểm thử gợi ý
-
-1. Mở game trên điện thoại, chọn tên và vào điện; kiểm tra có nhạc nhẹ. Nhấn ♫ để bật/tắt.
-2. Ra sân và xác nhận nhạc dừng; quay vào điện và nhạc phát tiếp.
-3. Tới từng đệm, nhấn tương tác, xác nhận không nhảy sang đệm khác và nhận +1 tích đức/giây.
-4. Xoay camera đủ bốn phía, quan sát hoa văn và cửa sổ, kiểm tra nhân vật không bị che đáng kể.
-5. Mở game trên hai thiết bị và thử đồng bộ nhân vật, chat, cùng các tính năng cũ.
-
-**Lưu ý:** Đã kiểm tra cú pháp mã nguồn. Chưa xác nhận trực quan trên mọi loại điện thoại/trình duyệt.
-
-
-## Chùa Online 5.0.1 – Fix sân 3D không hiện
-- `index.html` nạp `outside3d.js` qua module.
-- `server.js` phục vụ đường dẫn `/outside3d.js`.
-- `game.js` khởi chạy `courtyard3D.enter()` khi module đã sẵn sàng và giữ cảnh 2D làm dự phòng nếu WebGL bị lỗi.
-- Khi tải lại trên điện thoại, dùng refresh mạnh/xoá cache nếu vẫn thấy giao diện cũ.
-
-
-## Bản 5.3 – camera gần và mái điện 3D
-- Camera sân chùa ở gần nhân vật hơn, xoay bằng kéo chuột/vuốt; trên máy tính lăn chuột để chỉnh khoảng cách.
-- Mái điện dùng hai mặt dốc nối vào sống mái và hai mái cánh trái/phải, không còn đoạn mái rời ở giữa.
-- Cột đỏ được bố trí hai bên cửa, liền với chân và đầu cột; cửa chính chừa lối vào giữa.
-- Giữ sân lát gạch xám, tường trắng cửa sổ đỏ, mái ngói cam, cây khẩu nghiệp và logic Multiplayer.
-
-
-## v5.4 — Sửa sân gạch / tường bao / tương tác
-
-- Nền gạch ô xám phủ toàn bộ diện tích sân trong tường (không còn các dải cỏ chen giữa). Dùng 1 texture lặp để nhẹ hơn cho điện thoại.
-- Tường bao trắng khép kín bốn phía, tường bên có các ô cửa trang trí đỏ và mái ngói cam; tường trước chừa lối cổng.
-- Sửa tọa độ vật thể: Cây Khẩu Nghiệp chính xác tại tọa độ tương tác game (190,442), bàn viết sớ tại (926,493), cửa điện tại (600,401). Có vòng đánh dấu trên nền để dễ tương tác.
-- Camera sân giới hạn bên trong tường để giảm trường hợp nhìn xuyên tường.
-- Trên PC: WASD + E; trên điện thoại dùng joystick + nút tương tác, vuốt ở vùng 3D để xoay camera.
-
-**Lưu ý:** Three.js chạy bằng WebGL. Số lượng 100 người đồng thời chưa được kiểm thử tải thực tế; hiệu năng phụ thuộc thiết bị và hạ tầng Render.
-
-## Chùa Online 5.5 - Mô hình Cây Khẩu Nghiệp 3D thật
-- File GLB độc lập: `assets/cay-khau-nghiep-3d.glb` (mô hình hình học thực, không phải hình PNG).
-- `outside3d.js` nạp GLB qua `GLTFLoader` tại tọa độ tương tác Cây Khẩu Nghiệp (190, 442).
-- `index.html` thêm import map cho Three.js và `server.js` phục vụ `/vendor/three/addons/` để loader hoạt động.
-- Khi tải mô hình lỗi, game hiển thị cây hình học cũ để không bị trống khu vực.
-- Mô hình có thân, rễ, cành, các cụm lá, dây, thẻ treo và đèn lồng; có thể mở/chỉnh sửa bằng Blender.
-- Hiệu ứng tương tác (bấm E để đọc/viết lời khẩu nghiệp) vẫn do `game.js` xử lý; lưu lời trên máy chủ như bản trước.
-- Để cập nhật lên Render, upload **toàn bộ project**, đặc biệt file GLB và `server.js`, `index.html`, `outside3d.js`.

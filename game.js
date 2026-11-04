@@ -5,10 +5,10 @@
   if (!ctx) { alert('Trình duyệt không hỗ trợ Canvas 2D.'); return; }
   const $ = id => document.getElementById(id);
   const W = 1200, H = 760;
-  const state = { scene:'temple', keys:new Set(), player:{x:610,y:610,dir:0,steps:0}, time:0, near:false, locked:false, fishStart:-1, fishReleased:false, ritual:0, nearTree:false, hasLetter:false, blessing:'', joyX:0, joyY:0, particles:[], sound:false, last:0, count:0, virtue:0, meditating:false, meditateClock:0, nearMeditation:false, meditationSpot:null };
-  try { state.count = Math.max(0, Number(localStorage.getItem('chuaonline_fish') || 0) || 0); } catch (_) {}
+  const state = { scene:'temple', keys:new Set(), player:{x:610,y:610,dir:0,steps:0}, time:0, near:false, locked:false, fishStart:-1, fishReleased:false, ritual:0, nearTree:false, nearSmash:false, nearScream:false, hasLetter:false, blessing:'', joyX:0, joyY:0, particles:[], sound:false, last:0, count:0, virtue:0, meditating:false, meditateClock:0, nearMeditation:false, meditationSpot:null };
+  try { state.count = Math.max(0, Number(localStorage.getItem('xastress_relief') || 0) || 0); } catch (_) {}
   $('fishCount').textContent = String(state.count);
-  try { state.virtue = Math.max(0, Number(localStorage.getItem('chuaonline_virtue') || 0) || 0); } catch (_) {}
+  try { state.virtue = Math.max(0, Number(localStorage.getItem('xastress_calm') || 0) || 0); } catch (_) {}
   $('virtueCount').textContent = String(state.virtue);
   // Real-time state; only character coordinates and public chat are synchronized.
   const peers = new Map();
@@ -18,14 +18,14 @@
   function updateTreeCount() { $('treeCount').textContent=String(noteTotal); }
   function readableDate(value) {const d=new Date(value);return Number.isNaN(d.getTime())?'':d.toLocaleString('vi-VN');}
   async function loadNotes(page=1) {
-    const list=$('noteList');list.textContent='Đang tải lời khẩu nghiệp...';
+    const list=$('noteList');list.textContent='Đang tải các lá thẻ trên Cây Khẩu Nghiệp...';
     try {
       const response=await fetch('/api/notes?page='+page+'&limit=12',{cache:'no-store'});
       if(!response.ok)throw Error('Máy chủ chưa sẵn sàng');
       const data=await response.json();notePage=page;noteTotal=data.total;noteHasNext=page*12<data.total;updateTreeCount();
       if(page===1)recentNotes=data.items.slice(0,12);
       list.replaceChildren();
-      if(!data.items.length){list.textContent='Cây còn trống. Hãy là người đầu tiên treo lời khẩu nghiệp!';}
+      if(!data.items.length){list.textContent='Cây còn trống. Hãy là người đầu tiên treo một lá thẻ xả bực!';}
       for(const note of data.items){
         const b=document.createElement('button');b.type='button';b.className='note-card';
         const a=document.createElement('small');a.textContent='🍃 '+readableDate(note.createdAt);
@@ -103,7 +103,7 @@
     nickname=n;joined=true;state.locked=false;$('joinModal').classList.add('hidden');
     try{localStorage.setItem('chuaonline_name',n)}catch(_){}
     if(socket?.connected)socket.emit('join',{name:n});sendPosition(true);
-    toast('Chào mừng '+n+'! Hãy thử trò chuyện với mọi người 💬');
+    toast('Chào mừng '+n+'! Hãy khám phá các khu xả stress 3D nhé 💬');
   }
   $('joinBtn').addEventListener('click',()=>{startJoin()});
   $('nameInput').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();startJoin()}});
@@ -111,33 +111,34 @@
   $('chatForm').addEventListener('submit',e=>{
     e.preventDefault();const input=$('chatInput'),msg=input.value.trim();
     if(!msg||!joined)return;
-    if(state.scene==='release'){toast('Hãy quay lại chùa để trò chuyện');return;}
+    if(state.scene==='release'){toast('Hãy quay lại khu xả stress để trò chuyện');return;}
     if(performance.now()-lastChat<1100){toast('Gửi tin nhắn chậm lại một chút nhé');return;}
     lastChat=performance.now();if(socket?.connected){socket.emit('chat',{text:msg});myBubble=bubble(msg);}else toast('Chưa kết nối máy chủ');
     input.value='';input.blur();
   });
   initMultiplayer();
   const blessings = [
-    'Mong những chuyện làm bạn phiền hôm nay sẽ nhỏ đi, còn niềm vui ngày mai sẽ lớn lên.',
-    'Không phải chuyện gì cũng cần đáp trả. Đôi khi, bình yên là câu trả lời ngầu nhất.',
-    'Xin chúc bạn bớt gặp người vô tri, thêm gặp người tinh tế và luôn có món ngon đúng lúc.',
-    'Một lời nhẹ nhàng cho chính mình: hôm nay bạn đã cố gắng đủ nhiều rồi.',
-    'Mong bạn sớm nhận được tin vui, ngủ ngon không nghĩ ngợi, thức dậy không báo thức.',
-    'Cho cơn bực bội trôi đi; giữ lại một chiếc bụng no và một trái tim vui.',
-    'Ngày mai hy vọng mọi việc xuôi chèo mát mái, Wi-Fi căng đét và người thương trả lời tin nhắn.',
-    'Tâm nhẹ như mây, vận may như gió. Đừng để một chuyện nhỏ chiếm cả ngày vui.',
-    'Chúc bạn không còn phải tranh luận với những điều khiến mình mệt; hãy dành sức cho niềm vui.',
-    'Hôm nay gửi muộn phiền vào gió, ngày mai đón bình an vào nhà.'
+    'Bạn không cần phải ổn ngay lập tức. Chỉ cần nhẹ hơn một chút so với lúc nãy là đã tốt rồi.',
+    'Cho phép bản thân mệt một chút, rồi từ từ quay lại với sự bình tĩnh.',
+    'Không phải chuyện gì cũng đáng để mang cả ngày trong lòng. Hãy buông bớt một phần nhé.',
+    'Hít vào chậm, thở ra dài. Cơ thể bạn xứng đáng được nghỉ ngơi.',
+    'Bạn đã làm đủ tốt cho hôm nay rồi. Phần còn lại cứ để bình yên xử lý dần.',
+    'Có những chuyện chỉ cần nói ra, không cần giải quyết ngay, lòng cũng đã nhẹ hơn.',
+    'Giữ lại điều đáng giữ, còn phần bực tức hãy để nó trôi qua đây.',
+    'Bạn đang học cách dịu lại với chính mình, và đó là một kỹ năng rất quý.',
+    'Một vòng xả stress hoàn thành. Hy vọng đầu óc bạn giờ đã thoáng hơn một chút.',
+    'Hôm nay gửi muộn phiền vào gió, lát nữa mang về cho mình một nhịp thở bình tĩnh.'
   ];
   const rand = (a,b)=> a+Math.random()*(b-a);
 const MEDITATION_SPOTS = [{"x":255,"y":500},{"x":405,"y":500},{"x":795,"y":500},{"x":945,"y":500},{"x":255,"y":600},{"x":405,"y":600},{"x":795,"y":600},{"x":945,"y":600},{"x":255,"y":700},{"x":405,"y":700},{"x":795,"y":700},{"x":945,"y":700}];
+  const ZONES={tree:{x:190,y:442,r:145},desk:{x:926,y:493,r:117},door:{x:600,y:401,r:100},smash:{x:390,y:508,r:96},scream:{x:760,y:508,r:96},ritual:{x:600,y:460,r:105}};
   function nearestMeditationSpot(){
     if(state.scene!=='inside') return null;
     // Never snap to the first overlapping pad: pick the closest, with a tight interaction radius.
     const ranked=MEDITATION_SPOTS.map(spot=>({spot,d:Math.hypot(state.player.x-spot.x,state.player.y-spot.y)})).sort((a,b)=>a.d-b.d);
     return ranked[0] && ranked[0].d<=36 ? ranked[0].spot : null;
   }
-  function setVirtue(value){ state.virtue=Math.max(0,Math.floor(value)); $('virtueCount').textContent=String(state.virtue); try{localStorage.setItem('chuaonline_virtue',String(state.virtue))}catch(_){} }
+  function setVirtue(value){ state.virtue=Math.max(0,Math.floor(value)); $('virtueCount').textContent=String(state.virtue); try{localStorage.setItem('xastress_calm',String(state.virtue))}catch(_){} }
   const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
   let audioCtx;
   // Original royalty-free ambient music is bundled with this project. Playback starts on a user interaction.
@@ -145,7 +146,7 @@ const MEDITATION_SPOTS = [{"x":255,"y":500},{"x":405,"y":500},{"x":795,"y":500},
   shrineMusic.loop=true; shrineMusic.preload='none'; shrineMusic.volume=.22;
   try{state.sound=localStorage.getItem('chuaonline_audio')!=='off'}catch(_){state.sound=true}
   $('soundBtn').textContent=state.sound?'♫':'♪';
-  $('soundBtn').title=state.sound?'Tắt âm thanh và nhạc thiền':'Bật âm thanh và nhạc thiền';
+  $('soundBtn').title=state.sound?'Tắt âm thanh và nhạc thư giãn':'Bật âm thanh và nhạc thư giãn';
   function syncShrineMusic(){
     if(state.scene==='inside'&&state.sound&&!document.hidden){
       const result=shrineMusic.play(); if(result&&typeof result.catch==='function')result.catch(()=>{});
@@ -282,7 +283,7 @@ const MEDITATION_SPOTS = [{"x":255,"y":500},{"x":405,"y":500},{"x":795,"y":500},
     if(state.meditating){ellipse(0,-8,28,7,'#84654b');} else {ellipse(-8,8,8,5,'#272e33');ellipse(8,8,8,5,'#272e33');}
     ctx.restore();
     if(state.near&&!state.locked){rounded(p.x-84,p.y-104,168,28,9);ctx.fillStyle='#fbefd5';ctx.fill();
-      const hint=state.meditating?'E  Đứng dậy khỏi đệm thiền':state.nearMeditation?'E  Ngồi thiền (+1 tích đức/giây)':state.scene==='inside'?'E  Dâng sớ':state.nearTree?'E  Cây khẩu nghiệp':Math.hypot(p.x-926,p.y-493)<117?'E  Viết sớ':'E  Vào điện tự do';
+      const hint=state.meditating?'E  Đứng dậy khỏi đệm thư giãn':state.nearMeditation?'E  Ngồi thư giãn (+1 bình tĩnh/giây)':state.scene==='inside'?(state.ritual===1?'E  Bỏ vào Hộp Xả Bực':'E  Khu thư giãn'):state.nearTree?'E  Cây Khẩu Nghiệp':state.nearSmash?'E  Đập bao cát':state.nearScream?'E  Vào Phòng Hét':Math.hypot(p.x-ZONES.desk.x,p.y-ZONES.desk.y)<ZONES.desk.r?'E  Viết điều đang bực':'E  Vào Nhà Hồi Phục';
       text(hint,p.x,p.y-90,12,'#5f452d','center','sans-serif')}
   }
   function drawCarp(x,y,size=1,dir=1,alpha=1){ctx.save();ctx.globalAlpha=alpha;ctx.translate(x,y);ctx.scale(size*dir,size);ctx.rotate(Math.sin(state.time*.012)*.07);ctx.fillStyle='#e3a43c';poly([[-21,0],[-43,-15],[-37,0],[-43,15]],'#d78a32');ellipse(0,0,25,13,'#f4b850');ellipse(6,-5,15,5,'#ffdf8c7c');poly([[-8,-7],[-12,-19],[6,-12]],'#ffdf8c');ellipse(17,-3,2.5,2.5,'#3f3530');ellipse(20,2,3,2,'#f9d88e');ctx.restore()}
@@ -299,7 +300,7 @@ const MEDITATION_SPOTS = [{"x":255,"y":500},{"x":405,"y":500},{"x":795,"y":500},
   }
   function render(ms){const dt=Math.min((ms-state.last||16)/1000,.045);state.last=ms;state.time=ms;
     if((state.scene==='temple'||state.scene==='inside')&&!state.locked&&joined){let dx=state.joyX,dy=state.joyY;for(const k of state.keys){if(k==='arrowup'||k==='w')dy--;if(k==='arrowdown'||k==='s')dy++;if(k==='arrowleft'||k==='a')dx--;if(k==='arrowright'||k==='d')dx++}
-    if(state.meditating && (dx||dy)){state.meditating=false;state.meditateClock=0;toast('Bạn đã đứng dậy khỏi đệm thiền.');updateAction();sendPosition(true);}
+    if(state.meditating && (dx||dy)){state.meditating=false;state.meditateClock=0;toast('Bạn đã đứng dậy khỏi đệm thư giãn.');updateAction();sendPosition(true);}
     if(!state.meditating && (dx||dy)){const n=Math.max(1,Math.hypot(dx,dy)),oldX=state.player.x,oldY=state.player.y;dx/=n;dy/=n;if(state.scene==='inside'){
       // Camera-relative directions: up always walks away from the viewer.
       const yaw=(state.scene==='inside'?window.temple3D?.getCameraYaw?.():window.courtyard3D?.getCameraYaw?.()) || 0;
@@ -316,11 +317,13 @@ const MEDITATION_SPOTS = [{"x":255,"y":500},{"x":405,"y":500},{"x":795,"y":500},
     }state.player.steps+=dt*2.8;}
     if(state.scene==='inside' && state.meditating){state.meditateClock+=dt; if(state.meditateClock>=1){const gain=Math.floor(state.meditateClock); state.meditateClock-=gain; setVirtue(state.virtue+gain); window.temple3D?.virtueGain(gain);}}
     let near=false;
-    state.nearTree=state.scene==='temple'&&Math.hypot(state.player.x-190,state.player.y-442)<145;
+    state.nearTree=state.scene==='temple'&&Math.hypot(state.player.x-ZONES.tree.x,state.player.y-ZONES.tree.y)<ZONES.tree.r;
+    state.nearSmash=state.scene==='temple'&&Math.hypot(state.player.x-ZONES.smash.x,state.player.y-ZONES.smash.y)<ZONES.smash.r;
+    state.nearScream=state.scene==='temple'&&Math.hypot(state.player.x-ZONES.scream.x,state.player.y-ZONES.scream.y)<ZONES.scream.r;
     state.meditationSpot=nearestMeditationSpot(); state.nearMeditation=!!state.meditationSpot || state.meditating;
-    if(state.scene==='temple') near=state.nearTree||Math.hypot(state.player.x-926,state.player.y-493)<117||Math.hypot(state.player.x-600,state.player.y-401)<100;
-    else near=state.meditating||!!state.meditationSpot||(state.ritual===1&&Math.hypot(state.player.x-600,state.player.y-460)<105)||(Math.abs(state.player.x-600)<105&&state.player.y>=688);
-    if(near!==state.near||state.lastNearTree!==state.nearTree||state.lastNearMeditation!==state.nearMeditation){state.near=near;state.lastNearTree=state.nearTree;state.lastNearMeditation=state.nearMeditation;updateAction()}}
+    if(state.scene==='temple') near=state.nearTree||state.nearSmash||state.nearScream||Math.hypot(state.player.x-ZONES.desk.x,state.player.y-ZONES.desk.y)<ZONES.desk.r||Math.hypot(state.player.x-ZONES.door.x,state.player.y-ZONES.door.y)<ZONES.door.r;
+    else near=state.meditating||!!state.meditationSpot||(state.ritual===1&&Math.hypot(state.player.x-ZONES.ritual.x,state.player.y-ZONES.ritual.y)<ZONES.ritual.r)||(Math.abs(state.player.x-600)<105&&state.player.y>=688);
+    if(near!==state.near||state.lastNearTree!==state.nearTree||state.lastNearMeditation!==state.nearMeditation||state.lastNearSmash!==state.nearSmash||state.lastNearScream!==state.nearScream){state.near=near;state.lastNearTree=state.nearTree;state.lastNearMeditation=state.nearMeditation;state.lastNearSmash=state.nearSmash;state.lastNearScream=state.nearScream;updateAction()}}
     // Responsive camera: preserve world coordinates (1200×760) for Socket.IO.
     // Keep the player in the usable center area above the mobile joystick/chat.
     const bounds=canvas.getBoundingClientRect();
@@ -342,35 +345,38 @@ const MEDITATION_SPOTS = [{"x":255,"y":500},{"x":405,"y":500},{"x":795,"y":500},
     state.view={scale,offX,offY};
     ctx.setTransform(dpr*scale,0,0,dpr*scale,dpr*offX,dpr*offY);
     if(state.scene==='temple'){drawTemple();drawPeers();drawPlayer();sendPosition();window.courtyard3D?.sync({player:state.player,others:[...peers.entries()].map(([id,p])=>({...p,id,chat:p.bubble?.until>performance.now()?p.bubble.text:''})),name:nickname,bubble:myBubble?.until>performance.now()?myBubble.text:''})}else if(state.scene==='inside'){drawInside();drawPeers();drawPlayer();sendPosition();window.temple3D?.sync({player:{...state.player,meditating:state.meditating},others:[...peers.entries()].map(([id,p])=>({...p,id,chat:p.bubble?.until>performance.now()?p.bubble.text:''})),name:nickname,bubble:myBubble?.until>performance.now()?myBubble.text:''})}else drawRelease();requestAnimationFrame(render)}
-  function updateAction(){const enabled=state.scene!=='release'&&state.near&&!state.locked;$('actionBtn').disabled=!enabled;const atDesk=state.scene==='temple'&&Math.hypot(state.player.x-926,state.player.y-493)<117;const atDoor=state.scene==='temple'&&Math.hypot(state.player.x-600,state.player.y-401)<100;$('actionLabel').textContent=state.meditating?'🪷 Đứng dậy khỏi đệm thiền':state.nearMeditation?'🧘 Ngồi thiền (+1 tích đức/giây)':state.nearTree?'🌳 Cây Khẩu Nghiệp':atDesk?'📜 Viết sớ cầu an':atDoor?'🏯 Vào điện Quan Âm':state.scene==='inside'?(state.player.y>=688&&Math.abs(state.player.x-600)<105?'🚪 Trở lại sân chùa':state.ritual===1?'📜 Dâng sớ 3D':'🪷 Vào đệm thiền'):'Chọn viết sớ hoặc Cây Khẩu Nghiệp'}
+  function updateAction(){const enabled=state.scene!=='release'&&state.near&&!state.locked;$('actionBtn').disabled=!enabled;const atDesk=state.scene==='temple'&&Math.hypot(state.player.x-ZONES.desk.x,state.player.y-ZONES.desk.y)<ZONES.desk.r;const atDoor=state.scene==='temple'&&Math.hypot(state.player.x-ZONES.door.x,state.player.y-ZONES.door.y)<ZONES.door.r;$('actionLabel').textContent=state.meditating?'🌿 Đứng dậy khỏi đệm thư giãn':state.nearMeditation?'🧘 Ngồi thư giãn (+1 bình tĩnh/giây)':state.nearTree?'🌳 Cây Khẩu Nghiệp':state.nearSmash?'🥊 Đập bao cát xả stress':state.nearScream?'📣 Vào Phòng Hét':atDesk?'📝 Viết điều đang bực':atDoor?'🏠 Vào Nhà Hồi Phục':state.scene==='inside'?(state.player.y>=688&&Math.abs(state.player.x-600)<105?'🚪 Trở lại khu xả stress':state.ritual===1?'📦 Bỏ vào Hộp Xả Bực':'🌿 Vào đệm thư giãn'):'Hãy đến một khu tương tác'}
   function modal(id,show){$(id).classList.toggle('hidden',!show);state.locked=show;state.keys.clear();state.joyX=0;state.joyY=0;resetJoystick();updateAction()}
   let toastTimer;function toast(s){$('toast').textContent=s;$('toast').classList.add('visible');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').classList.remove('visible'),2800)}
   function interact(){if(!state.near||state.locked||!joined)return;
     if(state.scene==='temple'&&state.nearTree){showTree();return;}
-    if(state.scene==='temple'&&Math.hypot(state.player.x-926,state.player.y-493)<117){if(state.ritual!==0){toast('Bạn đã có sớ cầu an, hãy đến cửa điện chính.');return;}modal('letterModal',true);$('prayerInput').focus();tone(660);return;}
-    if(state.scene==='temple'&&Math.hypot(state.player.x-600,state.player.y-401)<100){state.scene='inside';state.player.x=600;state.player.y=695;window.courtyard3D?.exit();window.temple3D?.enter();syncShrineMusic();state.near=false;sendPosition(true);$('chapter').textContent='02 / BÊN TRONG ĐIỆN';$('sceneTitle').innerHTML='Điện Quan Âm 3D,<br>thiền định bình an.';$('sceneSubtitle').textContent='Vào thiền tự do; có sớ mới thực hiện nghi thức dâng sớ. Joystick di chuyển theo hướng camera.';updateAction();tone(660);return;}
+    if(state.scene==='temple'&&state.nearSmash){setVirtue(state.virtue+2); window.courtyard3D?.flashSmash?.(); toast('🥊 Bạn vừa đập bao cát tượng trưng. +2 bình tĩnh'); tone(520,.18); setTimeout(()=>tone(460,.15),120); updateAction(); return;}
+    if(state.scene==='temple'&&state.nearScream){modal('screamModal',true); $('screamInput').focus(); tone(700,.18); return;}
+    if(state.scene==='temple'&&Math.hypot(state.player.x-ZONES.desk.x,state.player.y-ZONES.desk.y)<ZONES.desk.r){if(state.ritual!==0){toast('Bạn đã viết xong điều muốn xả, hãy mang nó vào Nhà Hồi Phục.');return;}modal('letterModal',true);$('prayerInput').focus();tone(660);return;}
+    if(state.scene==='temple'&&Math.hypot(state.player.x-ZONES.door.x,state.player.y-ZONES.door.y)<ZONES.door.r){state.scene='inside';state.player.x=600;state.player.y=695;window.courtyard3D?.exit();window.temple3D?.enter();syncShrineMusic();state.near=false;sendPosition(true);$('chapter').textContent='02 / NHÀ HỒI PHỤC';$('sceneTitle').innerHTML='Nhà Hồi Phục 3D,<br>thở chậm và dịu lại.';$('sceneSubtitle').textContent='Bạn có thể vào ngồi thư giãn tự do. Nếu đã viết điều bực riêng tư, hãy đem vào Hộp Xả Bực. Joystick tự theo hướng camera.';updateAction();tone(660);return;}
     if(state.scene==='inside'&&state.player.y>=688&&Math.abs(state.player.x-600)<105&&!state.meditating){
       state.scene='temple';window.temple3D?.exit();window.courtyard3D?.enter();syncShrineMusic();state.player.x=600;state.player.y=445;
       state.near=false;state.nearMeditation=false;state.meditationSpot=null;
-      $('chapter').textContent='01 / SÂN CHÙA';$('sceneTitle').innerHTML='Viết sớ cầu an,<br>hoặc treo khẩu nghiệp.';
-      $('sceneSubtitle').textContent='Điện mở cửa tự do. Vào thiền hoặc viết sớ cầu an tùy ý.';
-      sendPosition(true);updateAction();toast('Bạn đã trở lại sân chùa.');return;
+      $('chapter').textContent='01 / KHU XẢ STRESS';$('sceneTitle').innerHTML='Xả bực, thư giãn,<br>và treo khẩu nghiệp.';
+      $('sceneSubtitle').textContent='Bạn đã trở lại khu ngoài trời 3D: Cây Khẩu Nghiệp, Phòng Hét, bao cát và bàn xả bực riêng tư.';
+      sendPosition(true);updateAction();toast('Bạn đã trở lại khu xả stress.');return;
     }
-    if(state.scene==='inside'&&state.meditating){state.meditating=false;state.meditateClock=0;toast('Bạn đã đứng dậy khỏi đệm thiền.');updateAction();sendPosition(true);tone(500,.2);return;}
-    if(state.scene==='inside'&&state.meditationSpot){state.meditating=true;state.meditateClock=0;state.player.x=state.meditationSpot.x;state.player.y=state.meditationSpot.y;toast('🪷 Bạn đang ngồi thiền... mỗi giây cộng 1 tích đức. Vuốt để xoay góc nhìn.');updateAction();sendPosition(true);tone(560,.25);return;}
-    if(state.scene==='inside'&&state.ritual===1&&Math.hypot(state.player.x-600,state.player.y-460)<105){modal('offeringModal',true);tone(720)}
+    if(state.scene==='inside'&&state.meditating){state.meditating=false;state.meditateClock=0;toast('Bạn đã đứng dậy khỏi đệm thư giãn.');updateAction();sendPosition(true);tone(500,.2);return;}
+    if(state.scene==='inside'&&state.meditationSpot){state.meditating=true;state.meditateClock=0;state.player.x=state.meditationSpot.x;state.player.y=state.meditationSpot.y;toast('🌿 Bạn đang ngồi thư giãn... mỗi giây cộng 1 bình tĩnh. Vuốt để xoay góc nhìn.');updateAction();sendPosition(true);tone(560,.25);return;}
+    if(state.scene==='inside'&&state.ritual===1&&Math.hypot(state.player.x-ZONES.ritual.x,state.player.y-ZONES.ritual.y)<ZONES.ritual.r){modal('offeringModal',true);tone(720)}
   }
   $('actionBtn').addEventListener('click',()=>{unlockAudio();interact();});
   $('helpBtn').addEventListener('click',()=>modal('helpModal',true));
   document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',()=>modal(b.dataset.close,false)));
   $('prayerInput').addEventListener('input',()=>{$('prayerCharCount').textContent=$('prayerInput').value.length+'/400'});
   $('submitPrayerBtn').addEventListener('click',()=>{
-    const prayer=$('prayerInput').value.trim();if(prayer.length<3){toast('Hãy viết ít nhất 3 ký tự cho sớ cầu an nhé.');return;}
+    const prayer=$('prayerInput').value.trim();if(prayer.length<3){toast('Hãy viết ít nhất 3 ký tự cho điều bạn muốn xả nhé.');return;}
     state.hasLetter=true;state.ritual=1;state.blessing=blessings[Math.floor(Math.random()*blessings.length)];
-    modal('letterModal',false);$('sceneSubtitle').textContent='Sớ cầu an đã được niêm. Hãy mang sớ vào điện dâng hương.';
-    updateAction();toast('📜 Đã niêm sớ cầu an! Hãy đến cửa điện chính.');tone(880,.3);
+    modal('letterModal',false);$('sceneSubtitle').textContent='Bạn đã gói lại điều bực bội. Hãy mang nó vào Nhà Hồi Phục để bỏ vào Hộp Xả Bực.';
+    updateAction();toast('📝 Đã lưu điều bạn muốn xả! Hãy đến cửa Nhà Hồi Phục.');tone(880,.3);
   });
   $('karmaInput').addEventListener('input',()=>{$('charCount').textContent=$('karmaInput').value.length+'/400'});
+  $('screamInput').addEventListener('input',()=>{$('screamCharCount').textContent=$('screamInput').value.length+'/120'});
   $('submitBtn').addEventListener('click',async()=>{
     const content=$('karmaInput').value.trim();if(content.length<3){toast('Nhập ít nhất 3 ký tự cho lời khẩu nghiệp nhé ✍');return;}
     const button=$('submitBtn');button.disabled=true;button.textContent='Đang treo lời lên cây...';
@@ -378,16 +384,23 @@ const MEDITATION_SPOTS = [{"x":255,"y":500},{"x":405,"y":500},{"x":795,"y":500},
       const res=await fetch('/api/notes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({author:nickname,content})});
       const data=await res.json();if(!res.ok)throw Error(data.error||'Không thể lưu lời khẩu nghiệp');
       $('karmaInput').value='';$('charCount').textContent='0/400';modal('karmaWriteModal',false);
-      toast('🍃 Đã treo lời khẩu nghiệp! Ai cũng có thể bấm đọc.');tone(880,.3);
+      toast('🍃 Đã treo lời lên Cây Khẩu Nghiệp! Ai cũng có thể bấm đọc.');tone(880,.3);
       showTree();
     }catch(err){toast(err.message||'Không thể lưu lời khẩu nghiệp. Thử lại sau.');}
     finally{button.disabled=false;button.textContent='🍃 Treo lời khẩu nghiệp lên cây';}
   });
+
+  $('submitScreamBtn').addEventListener('click',()=>{
+    const content=$('screamInput').value.trim();if(content.length<2){toast('Hãy nhập ít nhất 2 ký tự để hét nhé.');return;}
+    modal('screamModal',false);$('screamInput').value='';$('screamCharCount').textContent='0/120';
+    if(socket?.connected){socket.emit('chat',{text:'📣 '+content});myBubble=bubble('📣 '+content);}else myBubble=bubble('📣 '+content);
+    setVirtue(state.virtue+1); window.courtyard3D?.flashScream?.(); toast('📣 Đã hét ra cho nhẹ lòng! +1 bình tĩnh'); tone(780,.22);
+  });
   $('offerBtn').addEventListener('click',()=>{if(state.scene!=='inside'||state.ritual!==1)return;state.ritual=2;modal('offeringModal',false);modal('incenseModal',true);tone(640,.3)});
   $('incenseBtn').addEventListener('click',()=>{if(state.scene!=='inside'||state.ritual!==2)return;state.ritual=3;modal('incenseModal',false);$('blessingText').textContent='“'+state.blessing+'”';modal('blessingModal',true);tone(880,.3);setTimeout(()=>tone(1046,.4),240)});
-  $('releaseBtn').addEventListener('click',()=>{if(state.ritual!==3)return;modal('blessingModal',false);state.scene='release';window.temple3D?.exit();window.courtyard3D?.exit();syncShrineMusic();state.ritual=4;state.meditating=false;state.meditateClock=0;sendPosition(true);state.fishStart=-1;state.fishReleased=false;$('chapter').textContent='02 / HỒ SEN';$('sceneTitle').innerHTML='Thả muộn phiền,<br>giữ bình an.';$('sceneSubtitle').textContent='Một chú cá vàng đang chờ được về với làn nước.';$('releasePanel').classList.remove('hidden');$('dropFishBtn').classList.remove('hidden');$('againBtn').classList.add('hidden');$('releaseStatus').textContent='Một chú cá vàng đang đợi bạn...';$('releaseNote').textContent='Nhấn nút để xem chú cá bơi tự do dưới làn nước.';$('actionBtn').classList.add('hidden');$('controlTip').classList.add('hidden');$('mobileControls').classList.add('hidden');tone(523,.25)});
-  $('dropFishBtn').addEventListener('click',()=>{if(state.fishReleased)return;state.fishReleased=true;state.fishStart=performance.now();state.count++;$('fishCount').textContent=String(state.count);try{localStorage.setItem('chuaonline_fish',String(state.count))}catch(_){}$('dropFishBtn').classList.add('hidden');$('releaseStatus').textContent='Cá vàng đã trở về hồ ✨';$('releaseNote').textContent='Mong điều vui đến gần, điều buồn trôi xa. Cá đang bơi trong hồ!';$('againBtn').classList.remove('hidden');tone(784,.35);setTimeout(()=>tone(1046,.4),240)});
-  $('againBtn').addEventListener('click',()=>{state.scene='temple';window.temple3D?.exit();window.courtyard3D?.enter();syncShrineMusic();sendPosition(true);state.player={x:610,y:610,dir:0,steps:0};state.keys.clear();state.joyX=0;state.joyY=0;resetJoystick();state.near=false;state.locked=false;state.ritual=0;state.hasLetter=false;state.blessing='';state.meditating=false;state.meditateClock=0;state.nearMeditation=false;state.meditationSpot=null;$('chapter').textContent='01 / SÂN CHÙA';$('sceneTitle').innerHTML='Viết sớ cầu an,<br>hoặc treo khẩu nghiệp.';$('sceneSubtitle').textContent='Hai hoạt động riêng trong sân chùa 3D: viết sớ cầu an hoặc treo lời khẩu nghiệp.';$('releasePanel').classList.add('hidden');$('actionBtn').classList.remove('hidden');$('controlTip').classList.remove('hidden');$('mobileControls').classList.remove('hidden');$('prayerInput').value='';$('prayerCharCount').textContent='0/400';updateAction()});
+  $('releaseBtn').addEventListener('click',()=>{if(state.ritual!==3)return;modal('blessingModal',false);state.count++;$('fishCount').textContent=String(state.count);try{localStorage.setItem('xastress_relief',String(state.count))}catch(_){};setVirtue(state.virtue+3);state.scene='temple';window.temple3D?.exit();window.courtyard3D?.enter();syncShrineMusic();state.ritual=0;state.hasLetter=false;state.meditating=false;state.meditateClock=0;state.player.x=610;state.player.y=610;sendPosition(true);$('chapter').textContent='01 / KHU XẢ STRESS';$('sceneTitle').innerHTML='Xả bực, thư giãn,<br>và treo khẩu nghiệp.';$('sceneSubtitle').textContent='Bạn vừa hoàn thành một vòng xả stress. Hãy tiếp tục khám phá các khu 3D khác.';$('prayerInput').value='';$('prayerCharCount').textContent='0/400';toast('💨 Một vòng xả stress hoàn tất! +1 lượt xả, +3 bình tĩnh.');updateAction();tone(523,.25)});
+  $('dropFishBtn').addEventListener('click',()=>{if(state.fishReleased)return;state.fishReleased=true;state.fishStart=performance.now();state.count++;$('fishCount').textContent=String(state.count);try{localStorage.setItem('xastress_relief',String(state.count))}catch(_){}$('dropFishBtn').classList.add('hidden');$('releaseStatus').textContent='Cá vàng đã trở về hồ ✨';$('releaseNote').textContent='Mong điều vui đến gần, điều buồn trôi xa. Cá đang bơi trong hồ!';$('againBtn').classList.remove('hidden');tone(784,.35);setTimeout(()=>tone(1046,.4),240)});
+  $('againBtn').addEventListener('click',()=>{state.scene='temple';window.temple3D?.exit();window.courtyard3D?.enter();syncShrineMusic();sendPosition(true);state.player={x:610,y:610,dir:0,steps:0};state.keys.clear();state.joyX=0;state.joyY=0;resetJoystick();state.near=false;state.locked=false;state.ritual=0;state.hasLetter=false;state.blessing='';state.meditating=false;state.meditateClock=0;state.nearMeditation=false;state.meditationSpot=null;$('chapter').textContent='01 / KHU XẢ STRESS';$('sceneTitle').innerHTML='Xả bực, thư giãn,<br>và treo khẩu nghiệp.';$('sceneSubtitle').textContent='Khám phá các khu 3D ngoài trời: Cây Khẩu Nghiệp, Phòng Hét, bao cát, bàn xả bực và Nhà Hồi Phục.';$('releasePanel').classList.add('hidden');$('actionBtn').classList.remove('hidden');$('controlTip').classList.remove('hidden');$('mobileControls').classList.remove('hidden');$('prayerInput').value='';$('prayerCharCount').textContent='0/400';updateAction()});
   const fullscreenBtn=$('fullscreenBtn');
   fullscreenBtn?.addEventListener('click', async()=>{
     try {
@@ -399,8 +412,8 @@ const MEDITATION_SPOTS = [{"x":255,"y":500},{"x":405,"y":500},{"x":795,"y":500},
   document.addEventListener('fullscreenchange',()=>{
     if(fullscreenBtn) fullscreenBtn.title=document.fullscreenElement?'Thoát toàn màn hình':'Toàn màn hình';
   });
-  $('soundBtn').addEventListener('click',()=>{unlockAudio();state.sound=!state.sound;try{localStorage.setItem('chuaonline_audio',state.sound?'on':'off')}catch(_){}$('soundBtn').textContent=state.sound?'♫':'♪';$('soundBtn').title=state.sound?'Tắt âm thanh và nhạc thiền':'Bật âm thanh và nhạc thiền';syncShrineMusic();tone(740,.24);toast(state.sound?'Đã bật nhạc thiền và âm thanh ✨':'Đã tắt nhạc thiền và âm thanh')});
-  document.addEventListener('keydown',e=>{const key=e.key.toLowerCase();if(document.activeElement=== $('karmaInput')||document.activeElement=== $('prayerInput')||document.activeElement===$('chatInput')||document.activeElement===$('nameInput'))return;if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(key))e.preventDefault();if(e.key==='Escape'){for(const id of ['letterModal','karmaWriteModal','treeModal','readNoteModal','blessingModal','helpModal']){if(!$(id).classList.contains('hidden')){if(id==='blessingModal')return;modal(id,false);return}}}if(state.locked)return;if(key==='e'&&!e.repeat){interact();return}state.keys.add(key)});
+  $('soundBtn').addEventListener('click',()=>{unlockAudio();state.sound=!state.sound;try{localStorage.setItem('chuaonline_audio',state.sound?'on':'off')}catch(_){}$('soundBtn').textContent=state.sound?'♫':'♪';$('soundBtn').title=state.sound?'Tắt âm thanh và nhạc thư giãn':'Bật âm thanh và nhạc thư giãn';syncShrineMusic();tone(740,.24);toast(state.sound?'Đã bật nhạc thư giãn và âm thanh ✨':'Đã tắt nhạc thư giãn và âm thanh')});
+  document.addEventListener('keydown',e=>{const key=e.key.toLowerCase();if(document.activeElement=== $('karmaInput')||document.activeElement=== $('prayerInput')||document.activeElement===$('chatInput')||document.activeElement===$('nameInput'))return;if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(key))e.preventDefault();if(e.key==='Escape'){for(const id of ['letterModal','karmaWriteModal','screamModal','treeModal','readNoteModal','blessingModal','helpModal']){if(!$(id).classList.contains('hidden')){if(id==='blessingModal')return;modal(id,false);return}}}if(state.locked)return;if(key==='e'&&!e.repeat){interact();return}state.keys.add(key)});
   document.addEventListener('keyup',e=>state.keys.delete(e.key.toLowerCase()));window.addEventListener('blur',()=>state.keys.clear());
   // Real analog virtual joystick: one pointer at a time, independent of screen aspect ratio.
   const joystick=$('joystick'), knob=$('joystickKnob');let activePointer=null;
@@ -416,5 +429,5 @@ const MEDITATION_SPOTS = [{"x":255,"y":500},{"x":405,"y":500},{"x":795,"y":500},
   }
   window.addEventListener('courtyard3d-ready',beginCourtyard);
   if(window.courtyard3D) beginCourtyard();
-  state.locked=true;requestAnimationFrame(render);setTimeout(()=>toast('Bên phải: viết sớ cầu an • Bên trái: Cây Khẩu Nghiệp • Trong điện có đệm thiền 🪷'),800);
+  state.locked=true;requestAnimationFrame(render);setTimeout(()=>toast('Bên trái: Cây Khẩu Nghiệp • Giữa trái: bao cát • Giữa phải: Phòng Hét • Bên phải: bàn xả bực riêng tư 🌿'),800);
 })();

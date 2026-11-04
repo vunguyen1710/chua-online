@@ -217,7 +217,7 @@ function decorateAltar() {
   box(6.55,.10,.47,trim,0,6.07,-18.74);
   box(.12,1.42,.18,trim,-2.6,6.72,-18.68);
   box(.12,1.42,.18,trim,2.6,6.72,-18.68);
-  const title=textSprite('ĐIỆN QUAN ÂM','#64251d','#ffe6a1',44);
+  const title=textSprite('NHÀ HỒI PHỤC','#31523e','#f7efc7',44);
   title.scale.set(5.55,1.18,1);title.position.set(0,6.74,-18.66);scene.add(title);
 }
 
@@ -239,7 +239,7 @@ function buildExitDoor() {
   const leafR = new THREE.Group(); scene.add(leafR); leafR.position.set(1.2,0,12.82);
   const dl=box(2.05,4.0,.13,panel,0,2.2,0,leafL); const dr=box(2.05,4.0,.13,panel,0,2.2,0,leafR);
   leafL.rotation.y = -0.95; leafR.rotation.y = 0.95;
-  const exitText=textSprite('LỐI RA SÂN','#6a281d','#ffe7af',38); exitText.scale.set(3.1,.78,1); exitText.position.set(0,4.88,13.02); scene.add(exitText);
+  const exitText=textSprite('TRỞ RA KHU XẢ STRESS','#31523e','#f7efc7',34); exitText.scale.set(3.1,.78,1); exitText.position.set(0,4.88,13.02); scene.add(exitText);
 }
 
 function setupCameraControls() {
@@ -272,7 +272,7 @@ function setup() {
   renderer.setPixelRatio(Math.min(devicePixelRatio || 1, matchMedia('(pointer:coarse)').matches ? 1.4 : 1.8));
   renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.25;
   renderer.domElement.style.width = '100%'; renderer.domElement.style.height = '100%';
-  renderer.domElement.setAttribute('aria-label', 'Điện Quan Âm không gian ba chiều'); host.appendChild(renderer.domElement);
+  renderer.domElement.setAttribute('aria-label', 'Nhà Hồi Phục không gian ba chiều'); host.appendChild(renderer.domElement);
   scene = new THREE.Scene(); scene.background = new THREE.Color('#221818'); scene.fog = new THREE.Fog('#34251f', 13, 32); scene.userData = sceneData;
   camera = new THREE.PerspectiveCamera(64, 1, .08, 90);
   scene.add(new THREE.HemisphereLight('#fff1cc', '#533126', 3));
