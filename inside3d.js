@@ -7,7 +7,8 @@ let renderer, scene, camera, avatar, ritualLight, entered = false, available = t
 let peers = new Map(), elapsed = 0, last = performance.now(), incense = [], virtuePopups = [];
 let cameraYaw = 0, cameraPitch = 0.38, cameraDistance = 12.2;
 let dragPointer = null, dragLastX = 0, dragLastY = 0;
-const sceneData = { padGlows: [], padAuras: [] };
+const sceneData = { padGlows: [], padAuras: [], occluders: [] };
+const raycaster = new THREE.Raycaster();
 
 const col = (hex, roughness = .72, metalness = 0) => new THREE.MeshStandardMaterial({ color: hex, roughness, metalness });
 const wood = col('#622617'), darkWood = col('#36160f'), gold = col('#d2a34c', .31, .6), paleGold = col('#f6d88c', .45, .22);
@@ -46,8 +47,15 @@ function textSprite(text, bg = '#fff0ce', fg = '#493321', size = 64) {
 }
 
 function pillar(x, z) {
-  cyl(.46, .48, 5.5, red, x, 2.75, z); cyl(.61, .61, .26, gold, x, .26, z); cyl(.6, .6, .23, gold, x, 5.43, z);
+  const main=cyl(.46,.48,5.5,red.clone(),x,2.75,z);
+  const bottom=cyl(.61,.61,.26,gold.clone(),x,.26,z);
+  const top=cyl(.6,.6,.23,gold.clone(),x,5.43,z);
+  for(const item of [main,bottom,top]){
+    item.material.transparent=true;item.material.depthWrite=true;item.userData.occludeOpacity=1;
+    sceneData.occluders.push(item);
+  }
 }
+
 function makeLotus(x, y, z, s = .7) {
   const mat = col('#ea88a8', .55);
   const center = sphere(.26 * s, paleGold, x, y, z);
@@ -104,8 +112,9 @@ function assignLabelIfChanged(g, name) { if (g.userData.lastName === name) retur
 function mapPosition(p) { return { x: THREE.MathUtils.clamp((p.x - 600) / 46, -11.8, 11.8), z: THREE.MathUtils.clamp((p.y - 570) / 21, -7.6, 9.2) }; }
 
 const meditationPads2D = [
-  { x: 450, y: 626 }, { x: 600, y: 626 }, { x: 750, y: 626 },
-  { x: 520, y: 566 }, { x: 680, y: 566 }, { x: 600, y: 506 }
+  {x:360,y:535},{x:450,y:535},{x:750,y:535},{x:840,y:535},
+  {x:360,y:595},{x:450,y:595},{x:750,y:595},{x:840,y:595},
+  {x:360,y:655},{x:450,y:655},{x:750,y:655},{x:840,y:655}
 ];
 const meditationPads3D = meditationPads2D.map(mapPosition);
 
@@ -148,12 +157,22 @@ function setup() {
   box(30, .16, 34, floorMat, 0, -.09, -3.5);
   for (let x = -15; x <= 15; x += 1.5) box(.025, .013, 34, col('#754234'), x, .015, -3.5);
   for (let z = -20; z < 14; z += 1.5) box(30, .014, .025, col('#754234'), 0, .018, z);
-  box(30, 7, .5, darkWood, 0, 3.5, -20); box(.4, 7, 34, darkWood, -15, 3.5, -3.5); box(.4, 7, 34, darkWood, 15, 3.5, -3.5);
-  box(30, .43, 34, darkWood, 0, 6.8, -3.5);
+  box(30,7,.5,darkWood,0,3.5,-20);
+  // Thin side walls remain almost transparent so orbiting camera never loses sight of the avatar.
+  const glassWall=col('#6d3926');glassWall.transparent=true;glassWall.opacity=.10;glassWall.depthWrite=false;glassWall.side=THREE.DoubleSide;
+  for(const x of [-15,15]){
+    box(.15,5.5,34,glassWall,x,3,-3.5);
+    for(const z of [-17,-10,-3,4,11]) box(.28,6,.35,wood,x,3,z);
+    box(.3,.22,34,gold,x,5.75,-3.5);
+  }
+  // An open timber-beam ceiling replaces the opaque solid box above the camera.
+  for(const z of [-17,-9,-1,7]) box(30,.32,.5,darkWood,0,6.5,z);
+  for(const x of [-13,0,13]) box(.3,.28,33,wood,x,6.48,-3.5);
+
   const loader = new THREE.TextureLoader();
   loader.load('/assets/dien-quan-am.png', tex => { tex.colorSpace = THREE.SRGBColorSpace; const m = new THREE.MeshBasicMaterial({ map: tex }); box(12, 5.7, .08, m, 0, 3.7, -19.62); }, undefined, () => {});
-  for (const x of [-12, -8, -4, 4, 8, 12]) { pillar(x, -16); pillar(x, 8); }
-  for (const z of [-16, 8]) { box(24, .24, .5, gold, 0, 5.55, z); box(24, .18, .6, wood, 0, 6.15, z); }
+  for (const x of [-12,-7,7,12]) { pillar(x,-16); pillar(x,9); }
+  for (const z of [-16,9]) { box(24,.24,.5,gold,0,5.55,z); box(24,.18,.6,wood,0,6.15,z); }
 
   box(9, 1.1, 2.6, wood, 0, 1.05, -12.8); box(9.6, .22, 3, gold, 0, 1.65, -12.8);
   for (const x of [-3.7, 3.7]) { box(.18, 1.1, 2.4, paleGold, x, 1.12, -12.8); makeLotus(x, 2, -12.6, 1.2); }
@@ -165,6 +184,37 @@ function setup() {
 
   const ring = new THREE.Mesh(new THREE.TorusGeometry(.9, .06, 8, 60), new THREE.MeshBasicMaterial({ color: '#ffd17e', transparent: true, opacity: .7 }));
   ring.rotation.x = -Math.PI / 2; ring.position.set(0, .04, -6.6); scene.add(ring); ritualLight = ring;
+
+  // Vietnamese folk interior: red lacquered wall panels, bronze gong, wooden screen,
+  // blue-and-white ceramic vases, hanging lanterns and warm amber lights, kept to the perimeter.
+  const porcelain=col('#e6e3d4',.35), porcelainBlue=col('#315d84',.42), copper=col('#ae8149',.28,.56);
+  const shade=col('#f1b75a',.38), tassel=col('#a93827');
+  for(const side of [-1,1]){
+    for(const z of [-12,-3,5]){
+      const x=side*13.15;
+      box(.18,3.2,2.6,wood,x,3,z);
+      for(let j=-1;j<=1;j++) box(.22,2.4,.11,gold,x-side*.16,3,z+j*.72);
+      cyl(.48,.35,.85,porcelain,x-side*.95,.47,z);
+      cyl(.33,.34,.08,porcelainBlue,x-side*.95,.89,z);
+    }
+    for(const z of [-12,-4,4,11]){
+      const lx=side*10.35;
+      cyl(.32,.4,.72,shade,lx,4.65,z);
+      cyl(.44,.44,.09,gold,lx,5.08,z);
+      cyl(.44,.44,.09,gold,lx,4.23,z);
+      cyl(.035,.035,.52,tassel,lx,3.91,z);
+      const light=new THREE.PointLight('#eec47b',2.6,5);light.position.set(lx,4.5,z);scene.add(light);
+    }
+  }
+  // Bronze gong and low ceremonial screens are along the walls, never between the camera and player.
+  const gong=cyl(.95,.95,.12,copper,-12.95,2.65,-8.5);gong.rotation.z=Math.PI/2;
+  box(.18,2.5,2.5,wood,-13.1,2.7,-8.5);
+  for(const x of [-11.1,11.1]){
+    for(let z=-10;z<6;z+=3.4){
+      box(.23,1.45,1.45,wood,x,.8,z);
+      box(.28,.1,1.45,gold,x,1.54,z);
+    }
+  }
 
   meditationPads3D.forEach((spot, i) => {
     const base = new THREE.Mesh(new THREE.CylinderGeometry(.95, .95, .08, 28), new THREE.MeshStandardMaterial({ color: i < 3 ? '#a7623c' : '#b8794c', roughness: .92 }));
@@ -229,7 +279,20 @@ function updateCamera(playerPos) {
   const offset = new THREE.Vector3(Math.sin(yaw) * radiusXZ, cameraDistance * Math.sin(pitch) + 1.6, Math.cos(yaw) * radiusXZ);
   const target = new THREE.Vector3(playerPos.x, 1.95, playerPos.z - .3);
   const desired = target.clone().add(offset);
-  camera.position.lerp(desired, .095);
+  // Camera stays inside the hall; walls and beams cannot intersect the viewport.
+  desired.x=THREE.MathUtils.clamp(desired.x,-13.75,13.75);
+  desired.z=THREE.MathUtils.clamp(desired.z,-18.3,12.8);
+  desired.y=THREE.MathUtils.clamp(desired.y,2.6,6.0);
+  // Fade any column between the camera and character rather than pushing the camera into it.
+  const ray=target.clone().sub(desired), distance=ray.length();raycaster.set(desired,ray.normalize());raycaster.far=distance;
+  const occluded=new Set(raycaster.intersectObjects(sceneData.occluders,false).map(hit=>hit.object));
+  for(const mesh of sceneData.occluders){
+    const wanted=occluded.has(mesh)?0.10:1;
+    mesh.userData.occludeOpacity=THREE.MathUtils.lerp(mesh.userData.occludeOpacity??1,wanted,.2);
+    mesh.material.opacity=mesh.userData.occludeOpacity;
+    mesh.material.depthWrite=mesh.userData.occludeOpacity>.85;
+  }
+  camera.position.lerp(desired,.095);
   camera.lookAt(target);
 }
 
@@ -284,5 +347,6 @@ window.temple3D = {
     }
     for (const [id, o] of peers) if (!seen.has(id)) { scene.remove(o.group); peers.delete(id); }
   },
-  virtueGain(amount = 1) { if (entered) spawnVirtuePopup(amount); }
+  virtueGain(amount = 1) { if (entered) spawnVirtuePopup(amount); },
+  getCameraYaw(){return entered ? cameraYaw : 0;}
 };
