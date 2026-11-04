@@ -4,13 +4,36 @@ import { GLTFLoader } from '/vendor/three/addons/loaders/GLTFLoader.js';
 const host=document.getElementById('river3d');
 let renderer,scene,camera,player,avatar,loaderReady=false,entered=false,looping=false,peers=new Map();
 let points=[],curveDistance=[],totalDistance=1,riverIndex=60,startDistance=0,travelled=0,laps=0,clock=performance.now(),water=null,waterStrip=null,duckTemplate=null;
-let camOrbit=0,camHeight=5.2,camDistance=9.5,drag=null,entry=null,boarding=0;
-const speed=5.2; // metres per second along the stream
+let mapBounds={minX:-210,maxX:210,minZ:-210,maxZ:210};
+let camOrbit=0,camHeight=4.8,camDistance=8.3,drag=null,entry=null,boarding=0;
+const speed=5.25; // metres per second along the stream
+const driftProfiles=new Map();
 const mat=(c,roughness=.76)=>new THREE.MeshStandardMaterial({color:c,roughness});
 function box(w,h,d,color,x,y,z,p=scene){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat(color));m.position.set(x,y,z);p.add(m);return m}
 function ball(r,color,x,y,z,p=scene){const m=new THREE.Mesh(new THREE.SphereGeometry(r,18,14),mat(color));m.position.set(x,y,z);p.add(m);return m}
 function tube(r,h,color,x,y,z,p=scene){const m=new THREE.Mesh(new THREE.CylinderGeometry(r,r,h,16),mat(color));m.position.set(x,y,z);p.add(m);return m}
 function text3D(text){const can=document.createElement('canvas');can.width=1024;can.height=256;const c=can.getContext('2d');c.fillStyle='#234a47';c.fillRect(0,0,1024,256);c.fillStyle='#fff0bc';c.font='bold 66px sans-serif';c.textAlign='center';c.fillText(text,512,155,960);const tex=new THREE.CanvasTexture(can);tex.colorSpace=THREE.SRGBColorSpace;const group=new THREE.Group();group.add(new THREE.Mesh(new THREE.BoxGeometry(5,.9,.2),mat('#69563f')));const front=new THREE.Mesh(new THREE.PlaneGeometry(4.8,.8),new THREE.MeshBasicMaterial({map:tex}));front.position.z=.105;group.add(front);return group}
+
+
+function hashStr(s=''){ let h=2166136261>>>0; for(let i=0;i<s.length;i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h>>>0; }
+function profileFor(key='local'){
+  if(driftProfiles.has(key)) return driftProfiles.get(key);
+  let seed = key==='local' ? (Date.now() ^ Math.floor(Math.random()*1e9))>>>0 : hashStr(String(key));
+  const rnd = ()=>{ seed = (1664525 * seed + 1013904223) >>> 0; return seed / 4294967296; };
+  const p = {
+    lateral: (rnd()*2-1) * 1.45,
+    bobAmp: 0.05 + rnd()*0.08,
+    bobPhase: rnd()*Math.PI*2,
+    rollAmp: 0.012 + rnd()*0.022,
+    rollPhase: rnd()*Math.PI*2,
+    pitchAmp: 0.012 + rnd()*0.016,
+    yawOffset: (rnd()*2-1)*0.09,
+    swayAmp: 0.08 + rnd()*0.12,
+    speedSway: 0.04 + rnd()*0.04,
+    laneBias: (rnd()*2-1)*0.55
+  };
+  driftProfiles.set(key,p); return p;
+}
 
 function createDuckFallback(){
   const g=new THREE.Group();
@@ -80,7 +103,7 @@ function buildWaterSurface(path, width=19){
   geo.setAttribute('position', new THREE.Float32BufferAttribute(verts,3));
   geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs,2));
   geo.setIndex(idx); geo.computeVertexNormals();
-  const mat=new THREE.MeshStandardMaterial({color:'#5fbfda',roughness:.22,metalness:.08,transparent:true,opacity:.9,side:THREE.DoubleSide});
+  const mat=new THREE.MeshStandardMaterial({color:'#52b7d7',roughness:.14,metalness:.06,transparent:true,opacity:.92,side:THREE.DoubleSide});
   const mesh=new THREE.Mesh(geo,mat); mesh.renderOrder=1; return mesh;
 }
 
@@ -109,8 +132,8 @@ function person(color='#d4aa66'){
   
   return g;
 }
-const riverToGame=p=>({x:Math.round(37+(p.x+116)/232*1126),y:Math.round(390+(p.z+150)/300*331)});
-const gameToRiver=p=>({x:(p.x-37)/1126*232-116,z:(p.y-390)/331*300-150});
+const riverToGame=p=>({x:Math.round(37 + ((p.x-mapBounds.minX)/(mapBounds.maxX-mapBounds.minX))*1126),y:Math.round(390 + ((p.z-mapBounds.minZ)/(mapBounds.maxZ-mapBounds.minZ))*331)});
+const gameToRiver=p=>({x:((p.x-37)/1126)*(mapBounds.maxX-mapBounds.minX)+mapBounds.minX,z:((p.y-390)/331)*(mapBounds.maxZ-mapBounds.minZ)+mapBounds.minZ});
 function floatingPoint(dist){
   const d=((dist%totalDistance)+totalDistance)%totalDistance;
   let lo=0,hi=curveDistance.length-1;
@@ -119,9 +142,10 @@ function floatingPoint(dist){
   const start=curveDistance[i],end=next===0?totalDistance:curveDistance[next];
   const t=THREE.MathUtils.clamp((d-start)/Math.max(.0001,end-start),0,1);
   const a=points[i],b=points[next];
-  return new THREE.Vector3(THREE.MathUtils.lerp(a.x,b.x,t),-.28,THREE.MathUtils.lerp(a.z,b.z,t));
+  return new THREE.Vector3(THREE.MathUtils.lerp(a.x,b.x,t),THREE.MathUtils.lerp(a.y,b.y,t),THREE.MathUtils.lerp(a.z,b.z,t));
 }
 function readyPath(d){
+  if(d.bounds) mapBounds=d.bounds;
   entry=d.entryDeck;
   points=d.floatingPath.map(p=>new THREE.Vector3(p.x,p.y,p.z));
   curveDistance=[];let length=0;
@@ -133,7 +157,7 @@ function readyPath(d){
   if(waterStrip){ scene.remove(waterStrip); waterStrip.geometry?.dispose?.(); waterStrip.material?.dispose?.(); waterStrip=null; }
   waterStrip = buildWaterSurface(points, d.river?.averageWidth || 19);
   if(waterStrip){ scene.add(waterStrip); water = waterStrip; }
-  document.getElementById('riverStatus').textContent='Đã đến bến sông. Nhấn “Bắt đầu trôi” để thả mình theo dòng nước.';
+  document.getElementById('riverStatus').textContent='Đã đến bến sông. Nhấn “Bắt đầu trôi” để thả mình theo dòng nước uốn lượn.';
   document.getElementById('riverFloatBtn').disabled=!loaderReady;
 }
 function create(){
@@ -147,11 +171,11 @@ function create(){
   const sun=new THREE.DirectionalLight('#fff2d3',3.3);sun.position.set(-40,95,35);scene.add(sun);
   player=person('#d6a35d');scene.add(player);updateLabel(player,'Bạn'); attachDuckRide(player);
   const loader=new GLTFLoader();
-  loader.load('/assets/thung-lung-song-vong-tron-3d.glb?v=6.9.0',gl=>{scene.add(gl.scene);loaderReady=true;document.getElementById('riverFloatBtn').disabled=!points.length;document.getElementById('riverStatus').textContent='Đã tải thung lũng 3D. Bắt đầu trôi khi bạn sẵn sàng.';},undefined,err=>{
+  loader.load('/assets/thung-lung-song-vong-tron-3d.glb?v=7.0.0',gl=>{scene.add(gl.scene);loaderReady=true;document.getElementById('riverFloatBtn').disabled=!points.length;document.getElementById('riverStatus').textContent='Đã tải thung lũng 3D mới rộng hơn. Bắt đầu trôi khi bạn sẵn sàng.';},undefined,err=>{
     console.error('River GLB load failed',err);document.getElementById('riverStatus').textContent='Không tải được mô hình thung lũng. Hãy tải lại trang.';
   });
-  loader.load('/assets/phao-con-vit-3d.glb?v=6.9.0', gl=>{ duckTemplate=gl.scene; replaceDuckModel(player); for(const peer of peers.values()) replaceDuckModel(peer.group); }, undefined, err=>{ console.warn('Duck float model load failed, fallback will be used', err); });
-  fetch('/assets/river-route.json?v=6.9.0',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('river route not found');return r.json()}).then(readyPath).catch(err=>{
+  loader.load('/assets/phao-con-vit-3d.glb?v=7.0.0', gl=>{ duckTemplate=gl.scene; replaceDuckModel(player); for(const peer of peers.values()) replaceDuckModel(peer.group); }, undefined, err=>{ console.warn('Duck float model load failed, fallback will be used', err); });
+  fetch('/assets/river-route.json?v=7.0.0',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('river route not found');return r.json()}).then(readyPath).catch(err=>{
     console.error(err);document.getElementById('riverStatus').textContent='Không tải được tuyến sông. Hãy tải lại trang.';
   });
   host.addEventListener('pointerdown',e=>{if(!entered)return;drag={id:e.pointerId,x:e.clientX,y:e.clientY};host.setPointerCapture(e.pointerId)});
@@ -175,11 +199,10 @@ function frame(now){requestAnimationFrame(frame);if(!renderer||!entered||!scene)
   player.position.copy(center);
   if(looping){
     setFloatingPose(player,true);
-    player.position.y+=Math.sin(now*.0035)*.09;
     const yaw=Math.atan2(tangent.x, tangent.z);
-    player.rotation.y = yaw;
-    player.userData.body.rotation.x = -.45 + Math.sin(now*.003)*.025;
-    player.userData.body.rotation.z = Math.sin(now*.0025)*.018;
+    player.rotation.y = yaw + localProfile.yawOffset + Math.sin(now*0.0007+localProfile.rollPhase)*0.03;
+    player.userData.body.rotation.x = -.45 + Math.sin(now*0.0028 + localProfile.rollPhase)*localProfile.pitchAmp;
+    player.userData.body.rotation.z = Math.sin(now*0.0021 + localProfile.rollPhase)*localProfile.rollAmp;
   }else{
     setFloatingPose(player,false);
     player.rotation.y += (0-player.rotation.y)*.12;
@@ -187,15 +210,26 @@ function frame(now){requestAnimationFrame(frame);if(!renderer||!entered||!scene)
   const backward=looping?tangent.clone().multiplyScalar(-camDistance):new THREE.Vector3(0,0,camDistance);
   const dx=backward.x*Math.cos(camOrbit)-backward.z*Math.sin(camOrbit);
   const dz=backward.x*Math.sin(camOrbit)+backward.z*Math.cos(camOrbit);
-  const target=new THREE.Vector3(center.x,center.y+.85,center.z);
-  const desired=target.clone().add(new THREE.Vector3(dx,camHeight+1,dz));
+  const target=new THREE.Vector3(player.position.x,player.position.y+.72,player.position.z);
+  const desired=target.clone().add(new THREE.Vector3(dx,camHeight,dz));
   camera.position.lerp(desired,.055);camera.lookAt(target);
   if(player.userData.label)player.userData.label.lookAt(camera.position);
-  if(waterStrip){ waterStrip.position.y = -0.02 + Math.sin(now*.0012)*.04; if(waterStrip.material) waterStrip.material.opacity = 0.84 + Math.sin(now*.0018)*.06; }
+  if(waterStrip){ waterStrip.position.y = Math.sin(now*.0012)*.03; if(waterStrip.material){ waterStrip.material.opacity = 0.88 + Math.sin(now*.0018)*.04; waterStrip.material.color.setHSL(0.53,0.62,0.53 + Math.sin(now*.0009)*0.03); } }
   for(const peer of peers.values()){
-    peer.group.position.lerp(peer.target,.25);
+    const prof=profileFor(peer.profileKey || 'peer');
+    let ppos=peer.target.clone();
+    if(peer.floating){
+      const nrm=new THREE.Vector3(-peer.tangent.z,0,peer.tangent.x).normalize();
+      ppos.addScaledVector(nrm, Math.sin(now*0.0005 + prof.bobPhase)*prof.swayAmp + prof.laneBias);
+      ppos.y += Math.sin(now*0.0032 + prof.bobPhase)*prof.bobAmp;
+    }
+    peer.group.position.lerp(ppos,.22);
     setFloatingPose(peer.group, peer.floating);
-    if(peer.floating){ peer.group.rotation.y = Math.atan2(peer.tangent.x, peer.tangent.z); peer.group.userData.body.rotation.x = -.45; peer.group.userData.body.rotation.z = 0; }
+    if(peer.floating){
+      peer.group.rotation.y = Math.atan2(peer.tangent.x, peer.tangent.z) + prof.yawOffset;
+      peer.group.userData.body.rotation.x = -.45 + Math.sin(now*0.0026 + prof.rollPhase)*prof.pitchAmp;
+      peer.group.userData.body.rotation.z = Math.sin(now*0.0020 + prof.rollPhase)*prof.rollAmp;
+    }
     else { peer.group.rotation.y += (0-peer.group.rotation.y)*.12; }
     if(peer.group.userData.label)peer.group.userData.label.lookAt(camera.position);
   }
@@ -205,8 +239,8 @@ function syncPeers(others){
   if(!entered||!scene)return;
   const seen=new Set();
   for(const p of others||[]){if(p.scene!=='river')continue;seen.add(p.id);let peer=peers.get(p.id);
-    if(!peer){const group=person(p.color||'#8bbab7');scene.add(group);updateLabel(group,p.name||'Khách');attachDuckRide(group);peer={group,target:new THREE.Vector3(),tangent:new THREE.Vector3(0,0,1),floating:false};peers.set(p.id,peer)}
-    updateLabel(peer.group,p.name||'Khách');const loc=gameToRiver(p);peer.target.set(loc.x,p.meditating?-.2:.9,loc.z);peer.floating=p.meditating===true;
+    if(!peer){const group=person(p.color||'#8bbab7');scene.add(group);updateLabel(group,p.name||'Khách');attachDuckRide(group);peer={group,target:new THREE.Vector3(),tangent:new THREE.Vector3(0,0,1),floating:false,profileKey:p.id};peers.set(p.id,peer)}
+    updateLabel(peer.group,p.name||'Khách');const loc=gameToRiver(p);peer.target.set(loc.x,p.meditating?-.15:.9,loc.z);peer.floating=p.meditating===true;
     const future=gameToRiver({x:p.x+(p.dir||0)*6,y:p.y+2});peer.tangent.set(future.x-loc.x,0,future.z-loc.z).normalize();
   }
   for(const [id,p] of peers){if(!seen.has(id)){scene.remove(p.group);peers.delete(id)}}
@@ -214,8 +248,8 @@ function syncPeers(others){
 window.river3D={
   enter(){if(!renderer&&!create())return false;host.classList.remove('hidden');host.style.pointerEvents='auto';entered=true;clock=performance.now();resize();return true},
   exit(){entered=false;looping=false;host.classList.add('hidden');host.style.pointerEvents='none';document.getElementById('riverFloatBtn').textContent='🦆 Bắt đầu trôi'},
-  start(){if(!points.length||!loaderReady)return false;looping=true;boarding=0;document.getElementById('riverFloatBtn').textContent='🦆 Lên bờ';document.getElementById('riverStatus').textContent='Bạn đang thả trôi trên phao con vịt… Nhấn Lên bờ để dừng, hoặc Quay về sân để rời khu.';return true},
-  stop(){looping=false;document.getElementById('riverFloatBtn').textContent='🦆 Bắt đầu trôi';document.getElementById('riverStatus').textContent='Bạn đã lên bờ. Bạn có thể tiếp tục nằm trên phao con vịt để bắt đầu vòng trôi mới.';return true},
+  start(){if(!points.length||!loaderReady)return false;looping=true;boarding=0;document.getElementById('riverFloatBtn').textContent='🦆 Lên bờ';document.getElementById('riverStatus').textContent='Bạn đang thả trôi trên phao con vịt giữa dòng sông nhiều khúc cua… Nhấn Lên bờ để dừng, hoặc Quay về sân để rời khu.';return true},
+  stop(){looping=false;document.getElementById('riverFloatBtn').textContent='🦆 Bắt đầu trôi';document.getElementById('riverStatus').textContent='Bạn đã lên bờ. Mỗi lần trôi sẽ có nhịp lắc và lệch dòng hơi khác nhau, nên cảm giác không ai giống ai.';return true},
   isFloating(){return looping},
   toggle(){return looping?this.stop():this.start()},
   getNetworkPosition(){if(!entry)return {x:600,y:610};const p=looping?floatingPoint(riverIndex):entry;return riverToGame(p)},
