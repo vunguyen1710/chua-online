@@ -6,7 +6,8 @@ let renderer, scene, camera, avatar, entered = false;
 let peers = new Map(), last = performance.now();
 let cameraYaw = 0, cameraPitch = 0.35, cameraDistance = 8.2;
 let dragPointer = null, dragLastX = 0, dragLastY = 0;
-let smashBag = null, screamNeon = null, smashPulse = null, screamPulse = null, doorGlow = null;
+let smashBag = null, smashPulse = null, doorGlow = null;
+let arenaTargets=[], arenaActive=false, arenaHits=0;
 
 const col = (hex, roughness = .78, metalness = 0, emissive = null, emissiveIntensity = 0) =>
   new THREE.MeshStandardMaterial({ color: hex, roughness, metalness, ...(emissive ? { emissive, emissiveIntensity } : {}) });
@@ -47,7 +48,7 @@ function mapPosition(p){
 }
 function fromGame(x,y){ return mapPosition({x,y}); }
 // Shared authoring scale: character height ~2.1m, all GLB origins ground-center (Y=0), front = +Z.
-const LOCATIONS={tree:fromGame(190,442),door:fromGame(600,401),smash:fromGame(390,508),scream:fromGame(760,508),desk:fromGame(926,493)};
+const LOCATIONS={tree:fromGame(190,442),door:fromGame(600,401),smash:fromGame(390,508),arena:fromGame(760,508),desk:fromGame(926,493)};
 
 function treeCluster(x,z,scale=1){
   const g=new THREE.Group(); g.position.set(x,0,z); scene.add(g);
@@ -135,12 +136,34 @@ function buildSmashZoneFallback(){
   box(.7,.7,.7,col('#9a7c61'),-1.1,.35,.8,g); box(.8,.4,.6,col('#b89574'),1.05,.2,.7,g); box(.4,.4,.4,col('#87705d'),.9,.2,-.9,g);
   smashPulse = ringMarker(pos,'#ffb067',1.1);
 }
-function buildScreamBooth(){
-  const pos=fromGame(760,508); const g=new THREE.Group(); g.position.set(pos.x,0,pos.z); scene.add(g);
-  box(2.2,3.0,2.0,col('#6d95a0'),0,1.5,0,g); box(1.75,2.45,1.65,col('#a5c6d2'),0,1.55,.12,g); box(1.3,1.75,.08,col('#24434f'),0,1.85,1.02,g);
-  screamNeon = textSprite('PHÒNG HÉT', '#53355f', '#ffd2ff', 36); screamNeon.scale.set(3.1,.84,1); screamNeon.position.set(0,3.95,.2); g.add(screamNeon);
-  const bubble = new THREE.Mesh(new THREE.SphereGeometry(.42,18,14), new THREE.MeshStandardMaterial({color:'#f6f0ff', emissive:'#bb7cff', emissiveIntensity:.5, roughness:.45})); bubble.position.set(0,4.7,0); g.add(bubble);
-  screamPulse = ringMarker(pos,'#c28cff',1.0);
+function buildDeadlineArena(){
+  const pos=LOCATIONS.arena;
+  const group=new THREE.Group(); group.position.set(pos.x,0,pos.z); scene.add(group);
+  const base=col('#332946',.86),edge=col('#d4a8ff',.5,.08),glow=col('#a873f8',.36,.14,'#823cf3',.38);
+  const platform=new THREE.Mesh(new THREE.CylinderGeometry(2.8,2.95,.27,48),base);
+  platform.position.y=.12; group.add(platform);
+  const lip=new THREE.Mesh(new THREE.TorusGeometry(2.74,.08,8,48),edge);
+  lip.rotation.x=Math.PI/2; lip.position.y=.3;group.add(lip);
+  const stand=box(.26,2.1,.26,col('#63507a'),0,1.25,-2.25,group);
+  const title=textSprite('ĐẬP TAN DEADLINE','#49305f','#ffedbb',37);title.scale.set(4.3,.95,1);title.position.set(0,3.2,-2.25);group.add(title);
+  const labels=['DEADLINE','KPI','DRAMA','ÁP LỰC','MỆT MỎI'];
+  arenaTargets=[];
+  const geometries=[new THREE.IcosahedronGeometry(.65,1),new THREE.BoxGeometry(1.05,1.05,1.05),new THREE.DodecahedronGeometry(.61,0)];
+  for(let i=0;i<5;i++){
+    const a=i*Math.PI*2/5, x=Math.cos(a)*1.55, z=Math.sin(a)*1.55;
+    const pivot=new THREE.Group();pivot.position.set(x,1.38,z);group.add(pivot);
+    const material=col(['#e98865','#ffc868','#bfa0fc','#80c7c0','#f095b2'][i],.43,.1);
+    const mesh=new THREE.Mesh(geometries[i%3],material);pivot.add(mesh);
+    const tag=textSprite(labels[i],'#fff1d9','#4f3550',37);
+    tag.scale.set(1.7,.46,1);tag.position.y=.95;pivot.add(tag);
+    const marker=sphere(.13,glow,0,-.94,0,pivot);
+    arenaTargets.push({pivot,mesh,tag,marker,phase:i*1.23,hitUntil:0});
+  }
+  for(const x of [-2.25,2.25]){
+    cyl(.085,.085,1.5,col('#65527b'),x,.77,2.0,group);
+    sphere(.19,glow,x,1.6,2.0,group);
+  }
+  ringMarker(pos,'#c68eff',1.12);
 }
 
 function loadAsset(url, onSuccess, onError){
@@ -230,7 +253,7 @@ function buildScene(){
   camera = new THREE.PerspectiveCamera(64,1,.08,120);
   scene.add(new THREE.HemisphereLight('#fff6de','#61745e',2.6));
   const sun = new THREE.DirectionalLight('#fff0c7',3.2); sun.position.set(-12,18,10); scene.add(sun);
-  buildGround(); buildBoundary(); loadRecoveryHouse(); loadVentDeskModel(); loadSmashZoneModel(); buildScreamBooth(); buildPondAndRelax(); buildDecor(); loadKarmaTree();
+  buildGround(); buildBoundary(); loadRecoveryHouse(); loadVentDeskModel(); loadSmashZoneModel(); buildDeadlineArena(); buildPondAndRelax(); buildDecor(); loadKarmaTree();
   avatar = makePerson('#d7a85f'); scene.add(avatar); assignLabel(avatar,'Bạn');
 }
 
@@ -254,8 +277,17 @@ function animateFeedback(now){
     smashBag.rotation.z = t>0 ? Math.sin((smashBag.userData.hitUntil-now)*0.03)*0.18 : smashBag.rotation.z*0.85;
   }
   if(smashPulse){ const active = smashPulse.userData.flashUntil && smashPulse.userData.flashUntil>now; smashPulse.material.opacity = active ? .95 : .58; smashPulse.scale.setScalar(active ? 1.18 : 1); }
-  if(screamNeon){ const active = screamNeon.userData.flashUntil && screamNeon.userData.flashUntil>now; screamNeon.material.opacity = active ? 1 : .92; screamNeon.scale.set(active?3.35:3.1, active?.92:.84,1); }
-  if(screamPulse){ const active = screamPulse.userData.flashUntil && screamPulse.userData.flashUntil>now; screamPulse.material.opacity = active ? .98 : .6; screamPulse.scale.setScalar(active ? 1.16 : 1); }
+  for(const t of arenaTargets){
+    t.pivot.rotation.y += .011;
+    t.pivot.position.y=1.42+Math.sin(now*.002+t.phase)*.16;
+    const timeLeft=Math.max(0,t.hitUntil-now);
+    const pulse=timeLeft>0?Math.abs(Math.sin(timeLeft*.023)):0;
+    t.mesh.scale.setScalar(1+.38*pulse);
+    t.mesh.rotation.x += timeLeft>0?.075:.006;
+    t.mesh.material.emissive=new THREE.Color(timeLeft>0?'#e6b2ff':'#000000');
+    t.mesh.material.emissiveIntensity=timeLeft>0?.55:0;
+    t.tag.visible=timeLeft===0;
+  }
   if(doorGlow){ doorGlow.material.opacity = .6 + Math.sin(now*0.003)*.12; }
 }
 function loop(now){ requestAnimationFrame(loop); if(!entered||!renderer) return; const dt=Math.min((now-last)/1000,.06); last=now;
@@ -277,7 +309,13 @@ window.courtyard3D = {
   exit(){ host.classList.add('hidden'); host.style.pointerEvents='none'; entered=false; },
   getCameraYaw(){ return cameraYaw; },
   flashSmash(){ if(smashBag) smashBag.userData.hitUntil = performance.now()+750; if(smashPulse) smashPulse.userData.flashUntil = performance.now()+700; },
-  flashScream(){ if(screamNeon) screamNeon.userData.flashUntil = performance.now()+900; if(screamPulse) screamPulse.userData.flashUntil = performance.now()+900; },
+  arenaStart(){arenaActive=true;arenaHits=0;},
+  arenaHit(combo=1){
+    if(!arenaTargets.length)return;
+    const i=arenaHits++ % arenaTargets.length;
+    arenaTargets[i].hitUntil=performance.now()+480;
+  },
+  arenaEnd(){arenaActive=false;},
   sync({ player, others, name, bubble }){
     if(!entered || !scene || !avatar) return;
     const pos = mapPosition(player); avatar.position.x=pos.x; avatar.position.z=pos.z; assignLabel(avatar, name||'Bạn'); assignBubble(avatar, bubble||''); updateCamera(pos);

@@ -45,3 +45,11 @@ npm start
 ```
 
 Đảm bảo tải **cả thư mục `assets/`**, không chỉ riêng `outside3d.js`. Không đưa `node_modules` lên GitHub.
+
+## 6.3 — Đấu Trường Đập Tan Deadline 3D
+- Loại bỏ Phòng Hét khỏi cảnh ngoài trời, giao diện và logic tương tác.
+- Thay bằng 5 khối áp lực 3D xoay và có hoạt ảnh khi đập.
+- Đến vùng (760,508) nhấn E để chơi vòng 25 giây, bấm E tạo combo.
+- Điểm kỷ lục cá nhân lưu trong localStorage, không phải bảng xếp hạng online.
+- Thưởng bình tĩnh khi hoàn tất vòng.
+- Giữ lại Cây Khẩu Nghiệp, Nhà Hồi Phục, bao cát và bàn xả bực.
